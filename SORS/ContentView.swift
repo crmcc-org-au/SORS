@@ -118,7 +118,7 @@ let grades = ["A","B","C","D","E","F","G"]
 let subgrades = ["","1","2"]
 let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  1st 2 used for stage races
 
-let bonusTypes = ["Sprint","Prime"]
+let bonusTypes = ["Sprint","Prime"]    // bonus to be applied to a stage type
 
 var myConfig: Config = Config() {      // config for system
     didSet {
@@ -137,8 +137,8 @@ var msg = "---"                    // displayed on the main navigation page
 
 var reset = false                  // reset for next race/stage
 //var stopDisabled = true
-var startDisabled = false
-var recordDisabled = false
+var startDisabled = false          // start button on timing view status
+var recordDisabled = false         // record button on timing view status
 //var lockedState = true
 var timingStopped = true
 var raceStarted = false
@@ -174,7 +174,7 @@ didSet {
     }
 }
 
-var arrayPlaces = [[String: Any]]()
+//var arrayPlaces = [[String: Any]]()
 var handicaps = [Handicap]() {      // list of configured handicaps
 didSet {
         let encoder = JSONEncoder()
@@ -183,7 +183,7 @@ didSet {
         }
     }
 }
-var startingHandicaps: [Handicap] = []
+var startingHandicaps: [Handicap] = []   // handicaps for grades that have starters
 
 var unstartedGrades = [String]() {  // list of grades yet to start
 didSet {
@@ -401,10 +401,10 @@ func loadRiders() {
         let riders = try Data(contentsOf: url)
         let JSON = try! JSONSerialization.jsonObject(with: riders, options: [])
         arrayRiders = JSON as! [[String: Any]]
-        msg = String(arrayRiders.count) + " Riders loaded. "
+        msg = String(arrayRiders.count) + " Riders loaded from RMS."
     } catch {
 //        print(error.localizedDescription)
-        msg = "Riders not loaded"
+        msg = "No riders loaded from RMS."
     }
 }
 
@@ -481,9 +481,9 @@ func writeRiders(riders: Data) {
     let url = getDocumentsDirectory().appendingPathComponent("riders.txt")
     do {
         try riders.write(to: url) //, atomically: true, encoding: .utf8)
-        msg = "Riders written"
+        msg = "Riders written to storage file"
     } catch {
-        msg = "Riders not written: " + error.localizedDescription
+        msg = "Riders not written to storage file: " + error.localizedDescription
     }
 }
 
@@ -627,6 +627,9 @@ func setStageResults() -> [Rider] {
 
 
 struct ContentView: View {
+    @State var showMenu = false
+    @State var selectedView = "Main"
+    
     struct Background<Content: View>: View {
         private var content: Content
 
@@ -639,6 +642,10 @@ struct ContentView: View {
             .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
             .overlay(content)
         }
+    }
+    
+    func hideMenu() {
+        showMenu = false
     }
     
     struct SettingsView: View {
@@ -1367,8 +1374,6 @@ struct ContentView: View {
         }
     }
     
-    
-    
     struct DirectorView: View {
         @State var directorDetails = ""
         @State var registerDisabled = true
@@ -1578,6 +1583,8 @@ struct ContentView: View {
                     }
                     }
                 }
+                .listStyle(PlainListStyle())
+                
                 Text(marshalDetails)
                     .padding(5)
                 
@@ -1672,6 +1679,7 @@ struct ContentView: View {
                         }
                         }
                     }
+                    .listStyle(PlainListStyle())
                     HStack {
                         Text("Grade")
                         Picker(selection: $selectedGrade, label : Text("")){
@@ -1767,7 +1775,6 @@ struct ContentView: View {
         }
         }
     }
-    
     
     struct RegoView: View {
         @State private var selectedGrade = 0
@@ -2154,7 +2161,8 @@ struct ContentView: View {
                             ForEach(0 ..< genders.count) {
                                 Text(genders[$0])
                             }
-                        }.pickerStyle(SegmentedPickerStyle())
+                        }
+//                        .pickerStyle(SegmentedPickerStyle())
                         .frame(width: 50)
                         .clipped()
                         
@@ -2258,6 +2266,7 @@ struct ContentView: View {
         @State var starts: [Rider] = []
         
         func setStarts() {
+            // sert the starts array used for dynamic updating of the view
             if raceTypes[myConfig.raceType] == "Age Std" {
                 starts = arrayStarters.filter {$0.racegrade != directorGrade && $0.racegrade != marshalGrade}
                 starts.sort {$0.age < $1.age}
@@ -2300,11 +2309,13 @@ struct ContentView: View {
         }
         
         func delete(racenumber: String) {
+            // deletes a rider from the start list
             var pointer = 0
             
             for item in arrayStarters {
                 if item.racenumber == racenumber {
                     arrayStarters.remove(at: pointer)
+                    setStartingGrades()
                     setStarts()
                     getUnplaced()
                     return
@@ -2314,6 +2325,7 @@ struct ContentView: View {
         }
         
         var body: some View {
+            VStack{
             if raceTypes[myConfig.raceType] == "Age Std" || raceTypes[myConfig.raceType] == "TT" {
                 HStack {}
                     .onAppear {
@@ -2361,7 +2373,7 @@ struct ContentView: View {
                 setStartingGrades()
             }
             }
-            Text(String(starts.count) + " riders")
+            
                 
             List { ForEach(starts, id: \.racenumber) { rider in
                 HStack{
@@ -2390,7 +2402,15 @@ struct ContentView: View {
                 }
                 }
             }
+            .listStyle(PlainListStyle())
+            
             Spacer()
+            if starts.count == 1 {
+                Text(String(starts.count) + " rider")
+            } else {
+                Text(String(starts.count) + " riders")
+            }
+        }
             .navigationBarTitle("Start List", displayMode: .inline)
         }
         
@@ -2548,11 +2568,20 @@ struct ContentView: View {
                 case "TT", "Age Std" :
                     VStack {
                         // show a list of riders in start order
-                        Text(stopWatchManager.nextRider)
+                        if overTheLine > 0 {
+                            Text(stopWatchManager.nextRider)
                             .font(Font.body.monospacedDigit())
-                            .frame(height: buttonHeight/1.7)
+                            .frame(width: 50, height: buttonHeight/1.7)
+                            .padding()
+                        } else {
+                            Text(stopWatchManager.nextRider)
+                            .font(Font.body.monospacedDigit())
+                            .frame(width: 150, height: buttonHeight/1.7)
+                            .padding()
+                        }
                         Text(stopWatchManager.nextRiders)
-                            .font(Font.body.monospacedDigit())
+                        .font(Font.body.monospacedDigit())
+                        .padding()
                             //.frame(height: buttonHeight*4, alignment: .top)
                     }
                 default:
@@ -2560,11 +2589,10 @@ struct ContentView: View {
                 }
                 
                 // hide start on master and when disabled
-                if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") ||
-                    !self.stopWatchManager.started ) && !startDisabled {
+                if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled {
                 // Start button
                 Button(action: {
-                    TimingMsg = "Start"
+                    TimingMsg = "Started."
                     if !running {
                         running = true
                         self.stopWatchManager.storeStartTime()
@@ -2635,7 +2663,7 @@ struct ContentView: View {
                     .cornerRadius(10)
                 }
                 }
-                }// end HStack group
+                } // end HStack group
                 Text("") // spacer
                 // hide record and stop buttons on the paired slave
                 if !peripheralPaired {
@@ -2703,8 +2731,9 @@ struct ContentView: View {
                 }
                         
                 Spacer()
-                }.padding(.top, 10)
-                    // end vstack
+                }  // end vstack
+                .padding(.top, 10)
+                    
                     VStack() {
                     if !masterPaired &&
                         (raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age") && unstartedGrades.count > 0 {
@@ -2755,13 +2784,20 @@ struct ContentView: View {
     //                        {Text(finishTime.displayTime)}
                         }
                     }
+                    .listStyle(PlainListStyle())
 //                    .frame(width: 180)
                      
                     Spacer()
-                    }
+                    }  // end vstack
             }
                 //
                 Spacer()
+                HStack {
+                Text(TimingMsg)
+                    .padding(.bottom, 5)
+                }
+                .frame(width: 400, alignment: .center)
+                
             } // end VStack
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 stopWatchManager.resume()
@@ -2787,7 +2823,11 @@ struct ContentView: View {
                     } else {
                         unstartedGrades.sort()
                         startDisabled = false
-                        TimingMsg = String(unstartedGrades.count) + " Grades to start"
+                        if unstartedGrades.count == 1 {
+                            TimingMsg = String(unstartedGrades.count) + " Grade to start"
+                        } else {
+                            TimingMsg = String(unstartedGrades.count) + " Grades to start"
+                        }
                     }
                 case "Hcp", "Wheel":
                     if handicaps.count == 0 || !handicapsOK {
@@ -2850,7 +2890,7 @@ struct ContentView: View {
                         TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
                         return
                     }
-                    if stopWatchManager.started {
+                    if running {    // stopWatchManager.started {
                         startDisabled = true
                     } else {
                         if arrayStarters.count == 0 {
@@ -2910,7 +2950,6 @@ struct ContentView: View {
 //            }
 //            .frame(width:120, alignment: .center)
                 
-            Text(TimingMsg)
             
             .navigationBarTitle("Timing", displayMode: .inline)
         }
@@ -3446,6 +3485,7 @@ struct ContentView: View {
                     }
                 }
                 }
+                .listStyle(PlainListStyle())
                 
                 }
                 .onAppear(perform: {
@@ -3549,7 +3589,9 @@ struct ContentView: View {
 //                                    unplacedSpots.remove(at: unplacedSpot)
 //                                    unplacedSpots.sort()
                                     unplacedSpot = 0  // need to reset picker index after updating array
-                                    arrayStarters[index].stageResults[myConfig.currentStage].displayTime = dateAsTime(arrayStarters[index].stageResults[myConfig.currentStage].finishTime!)
+                                    // check that there is a finish time
+                                    if arrayStarters[index].stageResults[myConfig.currentStage].finishTime != nil {
+                                        arrayStarters[index].stageResults[myConfig.currentStage].displayTime = dateAsTime(arrayStarters[index].stageResults[myConfig.currentStage].finishTime!)}
                                     riderDetails = arrayStarters[index].racenumber + " placed"
                                     getUnplaced()
                                     getUnplacedSpots()
@@ -3659,7 +3701,9 @@ struct ContentView: View {
 //                                    unplacedSpots.remove(at: unplacedSpot)
 //                                    unplacedSpots.sort()
                                     unplacedSpot = 0  // need to reset picker index after updating array
-                                    arrayStarters[index].displayTime = dateAsTime(arrayStarters[index].finishTime!)  // TODO Check for abort
+                                    if arrayStarters[index].finishTime != nil {
+                                        arrayStarters[index].displayTime = dateAsTime(arrayStarters[index].finishTime!)  // TODO Check for abort
+                                    }
                                     riderDetails = arrayStarters[index].racenumber + " placed"
                                     getUnplaced()
                                     getUnplacedSpots()
@@ -3820,8 +3864,26 @@ struct ContentView: View {
                     }
 
                     if myConfig.stages[self.selectedStage].type == 0 && showBonuses {
-                    HStack {
-                        Picker(selection: Binding(
+//                        HStack {
+//                            Picker(selection: Binding(
+//                                get: {self.bonusType},
+//                                set: {self.bonusType = $0
+//                                    filterBonuses()
+//                                    if $0 == 0 {
+//                                        self.selectedPrime = -1
+//                                    }
+//                                }), label : Text("")){
+//                                    ForEach(0 ..< bonusTypes.count) {
+//                                    Text(bonusTypes[$0])
+//                                }
+//                            }
+//                            .frame(width: 110, height: 80)
+//                            .clipped()
+////                            .pickerStyle(RadioGroupPickerStyle())
+//                        }
+
+                        HStack {
+                            Picker(selection: Binding(
                                 get: {self.bonusType},
                                 set: {self.bonusType = $0
                                     filterBonuses()
@@ -3829,104 +3891,100 @@ struct ContentView: View {
                                         self.selectedPrime = -1
                                     }
                                 }), label : Text("")){
-                        
-//                        Picker(selection: $bonusType, label : Text("")){
-                            ForEach(0 ..< bonusTypes.count) {
-                                Text(bonusTypes[$0])
+                                    ForEach(0 ..< bonusTypes.count) {
+                                    Text(bonusTypes[$0])
+                                }
                             }
-                        }
-                        .frame(width: 150, height: 30)
-                        .clipped()
-                        .pickerStyle(SegmentedPickerStyle())
-                    }
-
-                    HStack {
-                        Picker("Rider", selection: $bonusRiderNumb) {
-                            ForEach(0 ..< riderList.count) {
-                                Text(riderList[$0])
+                            .frame(width: 110, height: 80)
+                            .clipped()
+                            
+                            if bonusType == 1 && myConfig.stages[self.selectedStage].numbPrimes  > 0 {
+                                Picker("Prime", selection: $selectedPrime) {
+                                    ForEach(1 ..< myConfig.stages[self.selectedStage].numbPrimes + 1) {
+                                        Text(String($0))
+                                    }
+                                }
+                                .id(UUID())
+                                .frame(width: 50)
+                                .clipped()
                             }
-                        }
-                        .id(UUID())
-                        .frame(width: 50)
-                        .clipped()
-
-                        if bonusType == 1 && myConfig.stages[self.selectedStage].numbPrimes  > 0 {
-                            Picker("Prime", selection: $selectedPrime) {
-                                ForEach(1 ..< myConfig.stages[self.selectedStage].numbPrimes + 1) {
-                                    Text(String($0))
+                            
+                            Picker("Rider", selection: $bonusRiderNumb) {
+                                ForEach(0 ..< riderList.count) {
+                                    Text(riderList[$0])
                                 }
                             }
                             .id(UUID())
                             .frame(width: 50)
                             .clipped()
-                        }
 
-                        VStack {
-                            Text("Sec:")
-                            .frame(width: 45.0, alignment: .leading)
-                            TextField("000", text: $bonusTxt)
-                            //.font(Font.system(size: 60, design: .default))
-                            .frame(width: 45.0)
-                            .keyboardType(.numberPad)
-                            .onChange(of: bonusTxt, perform: checkBonus)
-                            Text(" ")  // force the time up in line
-                        }
+                            VStack {
+                                Text("Sec:")
+                                .frame(width: 45.0, alignment: .leading)
+                                TextField("000", text: $bonusTxt)
+                                //.font(Font.system(size: 60, design: .default))
+                                .frame(width: 45.0)
+                                .keyboardType(.numberPad)
+                                .onChange(of: bonusTxt, perform: checkBonus)
+                                Text(" ")  // force the time up in line
+                            }
 
-                        Button(action: {
-                            // do some checks to see this isn't a duplicate
-                            for existingBonus in bonuses {
-                                if existingBonus.racenumber == riderList[bonusRiderNumb] && existingBonus.stage == self.selectedStage
-                                    && ((existingBonus.type == 1 && existingBonus.prime == selectedPrime) || (existingBonus.type == 0)){
-                                    return
+                            Button(action: {
+                                // do some checks to see this isn't a duplicate
+                                for existingBonus in bonuses {
+                                    if existingBonus.racenumber == riderList[bonusRiderNumb] && existingBonus.stage == self.selectedStage
+                                        && ((existingBonus.type == 1 && existingBonus.prime == selectedPrime) || (existingBonus.type == 0)){
+                                        return
+                                    }
                                 }
-                            }
-                            
-                            // store the bonus
-                            var newBonus = StageBonus()
-                            newBonus.stage = self.selectedStage
-                            newBonus.racenumber = riderList[bonusRiderNumb]
-                            newBonus.raceGrade = self.selectedGrade
-                            newBonus.prime = selectedPrime
-                            newBonus.bonus = bonus
-                            newBonus.id = String(newBonus.stage) + newBonus.racenumber + String(newBonus.prime)
-                            bonuses.append(newBonus)
-                            filterBonuses()
-                            bonusTxt = ""  // reset bonus
-                        }) {
-                            Text("Add")
-                                .padding()
-                                .foregroundColor(.black)
-                            }
-        //                .disabled( )
-                            .background(Color.green)
-                            .frame(width: 70, height: 40)
-                            .cornerRadius(10)
-                            .buttonStyle(PlainButtonStyle())
+                                
+                                // store the bonus
+                                var newBonus = StageBonus()
+                                newBonus.stage = self.selectedStage
+                                newBonus.racenumber = riderList[bonusRiderNumb]
+                                newBonus.raceGrade = self.selectedGrade
+                                newBonus.prime = selectedPrime
+                                newBonus.bonus = bonus
+                                newBonus.id = String(newBonus.stage) + newBonus.racenumber + String(newBonus.prime)
+                                bonuses.append(newBonus)
+                                filterBonuses()
+                                bonusTxt = ""  // reset bonus
+                            }) {
+                                Text("Add")
+                                    .padding()
+                                    .foregroundColor(.black)
+                                }
+            //                .disabled( )
+                                .background(Color.green)
+                                .frame(width: 70, height: 40)
+                                .cornerRadius(10)
+                                .buttonStyle(PlainButtonStyle())
 
-                    }  // end HStack
+                        }  // end HStack
                     
                         List { ForEach(filteredBonuses, id: \.id) { listBonus in   //
-                        // filter by Stage & Grade @ prime
-                        if listBonus.stage == self.selectedStage && listBonus.prime == self.selectedPrime {
-                            HStack {
-                                Text(listBonus.racenumber + " : " + String(listBonus.bonus))
-                                Spacer()
-                                Button(action: {
-                                    deleteBonus(racenumber: listBonus.racenumber)
-                                    filterBonuses()
-                                }) {
-                                    Text("Remove")
-                                        .padding()
-                                        .foregroundColor(.black)
-                                    }
-                                    .frame(width: 100, height: 30, alignment: .leading)
-                                    .background(Color.yellow)
-                                    .cornerRadius(10)
-                                    .buttonStyle(PlainButtonStyle())
+                            // filter by Stage & Grade @ prime
+                            if listBonus.stage == self.selectedStage && listBonus.prime == self.selectedPrime {
+                                HStack {
+                                    Text(listBonus.racenumber + " : " + String(listBonus.bonus))
+                                    Spacer()
+                                    Button(action: {
+                                        deleteBonus(racenumber: listBonus.racenumber)
+                                        filterBonuses()
+                                    }) {
+                                        Text("Remove")
+                                            .padding()
+                                            .foregroundColor(.black)
+                                        }
+                                        .frame(width: 100, height: 30, alignment: .leading)
+                                        .background(Color.yellow)
+                                        .cornerRadius(10)
+                                        .buttonStyle(PlainButtonStyle())
+                                }
+                            } // end if
                             }
-                        } // end if
                         }
-                    }
+                        .listStyle(PlainListStyle())
                     } else {
                         Text(result)
                         Button(action: {
@@ -4010,8 +4068,6 @@ struct ContentView: View {
                         .padding(.bottom, 10)
                         
                     } // end if
-                    
-                    
                 }  // end else
             }
             .onAppear(perform: {
@@ -4101,8 +4157,9 @@ struct ContentView: View {
                 List { ForEach(displayStarters, id: \.id) { rider in
                     Text(formDetails(rider: rider))
                     .foregroundColor(rider.place == "" && rider.overTheLine == "" && (rider.racegrade != directorGrade && rider.racegrade != marshalGrade) ? Color.red : Color.black)
+                    }
                 }
-                }
+                .listStyle(PlainListStyle())
                 Text(result)
                 Button(action: {
                     // Export the results for RMS as file
@@ -4438,124 +4495,416 @@ struct ContentView: View {
         }
     }
     
-    // Main navigation page
-    var body: some View {
+    struct MenuView: View {
+        @Binding var selectedView: String
+        @Binding var showMenu: Bool
         
-        NavigationView {
+        var body: some View {
+            ScrollView {
             VStack(alignment: .leading) {
                 Group{
-                    NavigationLink(
-                        destination: SettingsView())
-                        { Text("Settings").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: LoadView())
-                        { Text("Load").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: RegistrationsView())
-                        { Text("Registration").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: HandicapView())
-                        { Text("Handicaps").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: StartView())
-                        { Text("Start List").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: TimingView())
-                        { Text("Timing").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: PlacesView())
-                        { Text("Places").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: StagesView())
-                        { Text("Stages").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: ResultsView())
-                        { Text("Results").padding(.top, listPad)}
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Main"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "house")
+                        .foregroundColor(.black)
+                        .imageScale(.large)
+                    Text("Main")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
                 }
-                Spacer()
-                .padding()
-                Text(msg).frame(width: 100, alignment: .center)
-                .navigationBarTitle("SORS", displayMode: .inline)
-            }
-        }
-        .onAppear(perform: {
-            // Do things to start up the app
-            UIApplication.shared.isIdleTimerDisabled = true  // stop the screen locking
-            running = UserDefaults.standard.bool(forKey: "running")
-            
-            loadRiders()
-            loadNames()
-            loadRaces()
-            
-            if let items = UserDefaults.standard.data(forKey: "myConfig") {
-                let decoder = JSONDecoder()
-                if let decoded = try? decoder.decode(Config.self, from: items) {
-                    myConfig = decoded
+                .padding(.top, 20)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Settings"
+                            showMenu = false
+                        }
+                    }) {
+                        Image(systemName: "gear")
+                        .foregroundColor(.black)
+                        .imageScale(.large)
+                        Text("Settings")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
                 }
-            }
-            
-//            myConfig.raceDate = String(UserDefaults.standard.string(forKey: "raceDate") ?? "")
-//            myConfig.stage = UserDefaults.standard.bool(forKey: "stage")
-//            myConfig.raceType = UserDefaults.standard.integer(forKey: "raceType")
-            
-            peripheralName = String(UserDefaults.standard.string(forKey: "peripheralName") ?? "")
-            
-            if let items = UserDefaults.standard.data(forKey: "Starters") {
-                let decoder = JSONDecoder()
-                if let decoded = try? decoder.decode([Rider].self, from: items) {
-                    arrayStarters = decoded
-                    if myConfig.stage {
-                        if arrayStarters.count > 0 {
-                            for i in 0...(arrayStarters.count - 1) {
-                                while arrayStarters[i].stageResults.count < myConfig.numbStages {
-                                    arrayStarters[i].stageResults.append(StageResult())
-                                }
+                .padding(.top, 18)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Load"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .foregroundColor(.black)
+                        .imageScale(.large)
+                    Text("Load")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Director"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "person")
+                        .foregroundColor(.red)
+                        .imageScale(.large)
+                    Text("Director")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Marshals"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "person")
+                        .foregroundColor(.orange)
+                        .imageScale(.large)
+                    Text("Marshals")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Trial"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "person")
+                        .foregroundColor(.purple)
+                        .imageScale(.large)
+                    Text("Trials rider")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Rider"
+                            showMenu = false
+                        }
+                    }) {
+                    Image(systemName: "person")
+                        .foregroundColor(.green)
+                        .imageScale(.large)
+                    Text("Rider")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Wheel" || raceTypes[myConfig.raceType] == "Secret"  {
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                selectedView = "Handicaps"
+                                showMenu = false
                             }
+                        }) {
+                            Image(systemName: "plusminus.circle")
+                                .foregroundColor(.black)
+                                .imageScale(.large)
+                            Text("Handicaps")
+                                .foregroundColor(.black)
+                                .font(.headline)
                         }
                     }
-                    getUnplaced()
+                .padding(.top, 18)
+                }
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Start"
+                            showMenu = false
+                        }
+                    }) {
+                        Image(systemName: "figure.stand.line.dotted.figure.stand")
+                            .foregroundColor(.black)
+                            .imageScale(.large)
+                        Text("Start list")
+                            .foregroundColor(.black)
+                            .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                }
+                Group {
+                if raceTypes[myConfig.raceType] != "Crit" {
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                selectedView = "Timing"
+                                showMenu = false
+                            }
+                        }) {
+                        Image(systemName: "stopwatch")
+                            .foregroundColor(.black)
+                            .imageScale(.large)
+                        Text("Timing")
+                            .foregroundColor(.black)
+                            .font(.headline)
+                        }
+                    }
+                    .padding(.top, 18)
+                }
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Places"
+                            showMenu = false
+                        }
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                        .foregroundColor(.black)
+                        .imageScale(.large)
+                        Text("Places")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                if myConfig.stage {
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                selectedView = "Stages"
+                                showMenu = false
+                            }
+                        }) {
+                            Image(systemName: "tray.2")
+                            .foregroundColor(.black)
+                            .imageScale(.large)
+                            Text("Stages")
+                            .foregroundColor(.black)
+                            .font(.headline)
+                        }
+                    }
+                    .padding(.top, 18)
+                }
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            selectedView = "Results"
+                            showMenu = false
+                        }
+                    }) {
+                        Image(systemName: "folder")
+                        .foregroundColor(.black)
+                        .imageScale(.large)
+                        Text("Results")
+                        .foregroundColor(.black)
+                        .font(.headline)
+                    }
+                }
+                .padding(.top, 18)
+                Spacer()
+                .padding(.bottom, 500)
                 }
             }
-            
-            if let items = UserDefaults.standard.data(forKey: "finishTimes") {
-                let decoder = JSONDecoder()
-                if let decoded = try? decoder.decode([FinishTime].self, from: items) {
-                    finishTimes = decoded
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(red: 0.0, green: 1.0 , blue: 1.0))
+            .edgesIgnoringSafeArea(.all)
+            }
+        }
+    }
+    
+    struct MainView: View {
+         
+        var body: some View {
+            VStack(alignment: .leading) {
+                Text("Race date: " + myConfig.raceDate)
+                Text("Race type: " + raceTypes[myConfig.raceType])
+                Text("Entries: " + String(arrayStarters.count))
+                Text(msg)
+                .frame(width: 300, alignment: .center)
+                .padding(.top, 100)
+            }
+        }
+    }
+    
+    // Main page
+    var body: some View {
+        
+        let drag = DragGesture()
+        .onEnded {
+            if $0.translation.width < -100 {
+                withAnimation {
+                    self.showMenu = false
                 }
             }
-            
-            if let items = UserDefaults.standard.data(forKey: "handicaps") {
-                let decoder = JSONDecoder()
-                if let decoded = try? decoder.decode([Handicap].self, from: items) {
-                    handicaps = decoded
+            if $0.translation.width > 100 {
+                withAnimation {
+                    self.showMenu = true
                 }
             }
-            checkHandicaps()
-            // set up timer start state
-            if let items = UserDefaults.standard.data(forKey: "unstartedGrades") {
-                let decoder = JSONDecoder()
-                if let decoded = try? decoder.decode([String].self, from: items) {
-                    unstartedGrades = decoded
+        }
+        
+        return NavigationView {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                switch selectedView {
+                case "Settings":
+                    SettingsView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Load":
+                    LoadView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Director":
+                    DirectorView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Marshals":
+                    MarshalsView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Trial":
+                    TrialView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Rider":
+                    RegoView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Handicaps":
+                    HandicapView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Start":
+                    StartView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Timing":
+                    TimingView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Places":
+                    PlacesView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Stages":
+                    StagesView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                case "Results":
+                    ResultsView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
+                default:
+                    MainView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
                 }
-            }
-            if myConfig.stage {
-                if myConfig.stages.count == 0 {
-                    myConfig.raceType = 0
-                } else {
-                    myConfig.raceType = myConfig.stages[myConfig.currentStage].type
+
+                if self.showMenu {
+                    MenuView(selectedView: $selectedView, showMenu: $showMenu)
+                    .frame(width: geometry.size.width/2)
+                    .transition(.move(edge: .leading))
                 }
-                
+            }  // on zstack
+            .gesture(drag)
+        }
+        .navigationBarTitle("SORS", displayMode: .inline)
+        .navigationBarItems(leading: (
+            Button(action: {
+                withAnimation {
+                    self.showMenu.toggle()
+                }
+            }) {
+                Image(systemName: "line.horizontal.3")
+                    .imageScale(.large)
             }
-            // ensure selection is withing bounds
-            if myConfig.raceType < 0 {
-                myConfig.raceType = 0
-            }
-            if raceTypes[myConfig.raceType] == "Graded" && unstartedGrades.count == 0 {
-                startDisabled = true
-//                stopDisabled = false
-            }
-            setStartingGrades()
-        })
+        ))
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+        
+//        NavigationView {
+//            VStack(alignment: .leading) {
+//                Group{
+//                    NavigationLink(
+//                        destination: SettingsView())
+//                        { Text("Settings").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: LoadView())
+//                        { Text("Load").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: RegistrationsView())
+//                        { Text("Registration").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: HandicapView())
+//                        { Text("Handicaps").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: StartView())
+//                        { Text("Start List").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: TimingView())
+//                        { Text("Timing").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: PlacesView())
+//                        { Text("Places").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: StagesView())
+//                        { Text("Stages").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: ResultsView())
+//                        { Text("Results").padding(.top, listPad)}
+//                }
+//                Spacer()
+//                .padding()
+//                Text(msg).frame(width: 100, alignment: .center)
+//                .navigationBarTitle("SORS", displayMode: .inline)
+//            }
+//        }
     }
 }
  
