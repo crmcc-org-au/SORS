@@ -129,7 +129,7 @@ var myConfig: Config = Config() {      // config for system
         }
     }
 
-let fullListHeight = 355.0
+let fullListHeight = 465.0
 let handicapsListHeight = 560.0
 let keypadHeight = 240.0
 let listPad = CGFloat(15.0)
@@ -174,7 +174,6 @@ didSet {
     }
 }
 
-//var arrayPlaces = [[String: Any]]()
 var handicaps = [Handicap]() {      // list of configured handicaps
 didSet {
         let encoder = JSONEncoder()
@@ -274,6 +273,40 @@ func dateAsTime(_ date: Date) -> String{
     return String(hour) + ":" + String(min) + ":" + String(format: "%02u", sec)
 }
 
+func resetRiders() {
+    // resets the riders list to allow for a race restart
+    for rider in arrayStarters.indices {
+        arrayStarters[rider].place = ""
+        arrayStarters[rider].ttOffset = 0.0
+        arrayStarters[rider].startTime = nil
+        arrayStarters[rider].finishTime = nil
+        arrayStarters[rider].raceTime = 0.0
+        arrayStarters[rider].adjustedTime = 0.0
+        arrayStarters[rider].displayTime = ""
+        arrayStarters[rider].overTheLine = ""
+        arrayStarters[rider].stageResults = [StageResult()]
+    }
+}
+
+func riderCount() -> Int {
+    var count = 0
+    for rider in arrayStarters.indices {
+        if arrayStarters[rider].racegrade != marshalGrade && arrayStarters[rider].racegrade != directorGrade {
+            count =  count + 1
+        }
+    }
+    return count
+}
+
+func officalCount() -> Int {
+    var count = 0
+    for rider in arrayStarters.indices {
+        if arrayStarters[rider].racegrade == marshalGrade || arrayStarters[rider].racegrade == directorGrade {
+            count =  count + 1
+        }
+    }
+    return count
+}
 
 func getUnplaced(grade: Int = 0)  {
     // gets the started riders who are yet to be placed in the results
@@ -629,6 +662,7 @@ func setStageResults() -> [Rider] {
 struct ContentView: View {
     @State var showMenu = false
     @State var selectedView = "Main"
+    @StateObject var stopWatchManager = StopWatchManager()
     
     struct Background<Content: View>: View {
         private var content: Content
@@ -850,32 +884,37 @@ struct ContentView: View {
                     .keyboardType(.numberPad)
                     .onChange(of: TTStartIntervalString, perform: checkNumb)
                     .padding()
+                    .foregroundColor(Color.blue)
                 }
                 // Reset button
                 Button(action: {
-                    // Reset everything
-                    myConfig.raceType = 0
-                    myConfig.championship = false
-                    myConfig.numbStages = 2
-                    myConfig.TTDist = 20.0
-                    myConfig.TTStartInterval = 30
-                    myConfig.currentStage = 0
-                    TTStartIntervalString = String(myConfig.TTStartInterval)
-                    myConfig.stage = false
-                    arrayStarters = []
+                    // Reset things required to restart the race
                     unplacedRiders = []
-//                    unplacedSpots = []
-                    startingGrades = []
                     startedGrades = []
-                    handicaps = []
                     finishTimes = []
                     reset = true
                     running = false
                     raceStarted = false
                     recordDisabled = true
+                    resetRiders()
+                    
+                    // Reset everything for testing
+//                    myConfig.raceType = 0
+//                    myConfig.championship = false
+//                    myConfig.numbStages = 2
+//                    myConfig.TTDist = 20.0
+//                    myConfig.TTStartInterval = 30
+//                    myConfig.currentStage = 0
+//                    TTStartIntervalString = String(myConfig.TTStartInterval)
+//                    myConfig.stage = false
+//                    arrayStarters = []
+//                    startingGrades = []
+//                    handicaps = []
+//                    peripheralPaired = false
+//                    masterPaired = false
+                    
+//                    unplacedSpots = []
 //                    lockedState = true
-                    peripheralPaired = false
-                    masterPaired = false
                     
                     // set up for test run - TODO disable this in production
 //                    myConfig.raceType = 4 // 4 = Age
@@ -892,6 +931,7 @@ struct ContentView: View {
 //                    ]
 //                    }
 //                    unplacedRiders = ["4","40","402"]
+                    
                     checkHandicaps()
                     setStartingGrades()
                     result = "Reset done"
@@ -1043,22 +1083,24 @@ struct ContentView: View {
                 
                 HStack {
                     Toggle(isOn: $stage) {
-                        Text("Stage")
+                        Text("Staged")
 //                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .frame(width:110) //, alignment: .center)
+                    .frame(width:120) //, alignment: .center)
 //                    .padding()
                     .onChange(of: stage) {
                         myConfig.stage = $0
                     }
-                    
-                    Text("No: ")
-                    TextField(" ", text: $numbStagesTxt)
-                    //.font(Font.system(size: 60, design: .default))
-                    .frame(width: 45.0)
-                    .keyboardType(.numberPad)
-                    .onChange(of: numbStagesTxt, perform: checkNumbStages)
-                    .disabled(!myConfig.stage)
+                    if stage {
+                        Text("No: ")
+                        TextField(" ", text: $numbStagesTxt)
+                        //.font(Font.system(size: 60, design: .default))
+                        .frame(width: 60.0)
+                        .keyboardType(.numberPad)
+                        .onChange(of: numbStagesTxt, perform: checkNumbStages)
+                        .disabled(!myConfig.stage)
+                        .foregroundColor(Color.blue)
+                    }
                     
 //                    Text("Now: ")
 //                    TextField(" ", text: $currentStageTxt)
@@ -1071,7 +1113,7 @@ struct ContentView: View {
                 
                 HStack {
                     if stage {
-                        Text("Stage")
+                        Text("Stage:")
                         Picker(selection: Binding(
                                 get: {self.selectedStage},
                                 set: {self.selectedStage = $0
@@ -1087,11 +1129,11 @@ struct ContentView: View {
                                 Text(String($0 + 1))
                             }
                         }
-                        .frame(width: 30)
+                        .frame(width: 40)
                         .clipped()
                         .id(UUID())
                         
-                        Text("Type")
+                        Text("Type:")
                         Picker(selection: Binding(
                             get: {getType()},
                             set: {self.stages[selectedStage].type = $0
@@ -1106,18 +1148,19 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        .frame(width: 100)
+                        .frame(width: 80)
                         .clipped()
 //                        .pickerStyle(SegmentedPickerStyle())
                         
                         if self.stages.count >= (selectedStage + 1) && self.stages[selectedStage].type == 0 {
                             // type 0 is graded scratch
-                            Text("Primes")
+                            Text("Primes:")
                             TextField(" ", text: $numbPrimesTxt)
                             //.font(Font.system(size: 60, design: .default))
                             .frame(width: 45.0)
                             .keyboardType(.numberPad)
                             .onChange(of: numbPrimesTxt, perform: checkNumbPrimes)
+                            .foregroundColor(Color.blue)
                         }
                         
                         
@@ -1141,24 +1184,145 @@ struct ContentView: View {
                 }
                 
                 if raceTypes[self.selectedRaceType] == "Age Std" {
-                HStack {
-                    Text("Age Std TT Dist (km): ")
-                    TextField("000", text: $TTDistString)
-                    //.font(Font.system(size: 60, design: .default))
-                    .frame(width: 50.0)
-                    .keyboardType(.decimalPad)
-                    .onChange(of: TTDistString, perform: checkNumb)
-//                    .padding()
-                }
+                    HStack {
+                        Text("Age Std TT Dist (km): ")
+                        TextField("000", text: $TTDistString)
+                        //.font(Font.system(size: 60, design: .default))
+                        .frame(width: 50.0)
+                        .keyboardType(.decimalPad)
+                        .onChange(of: TTDistString, perform: checkNumb)
+    //                    .padding()
+                    }
                 }
                 
-                if !myConfig.stage && raceTypes[self.selectedRaceType] != "Age Std"{
+                if !stage && raceTypes[self.selectedRaceType] != "Age Std"{
                     Toggle(isOn: bind) {
                         Text("Championship")
     //                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .frame(width:200, alignment: .center)
                 }
+                HStack{
+                // Update button
+                Button(action: {
+                    result = "Updating entries ..."
+                    let url = URL(string: rms + "/?racingMembers")!
+
+                    let task = URLSession.shared.dataTask(with: url) {(data, response, error) in
+                        guard let httpResponse = response as? HTTPURLResponse,
+                                (200...299).contains(httpResponse.statusCode) else {
+                                //result = response
+                                //self.handleServerError(response)
+                                result = "Update entries failed."
+                                return
+                            }
+                        guard let data = data else {
+                            result = "No race entries received from RMS"
+                            return
+                        }
+                        writeRiders(riders: data)
+                        let JSON = try! JSONSerialization.jsonObject(with: data, options: [])
+                        arrayRiders = JSON as! [[String: Any]]
+                        // clear persisted starters
+                        defaults.set([], forKey: "Starters")
+                        result = ""
+                        
+                        if arrayRaces.count > 0 {
+                            let raceid = arrayRaces[selectedRace]["id"] as! String
+                            
+                            // load any new pre entries
+                            let perentryURL = URL(string: rms + "/?eventEntries=" + raceid)!
+                            let preTask = URLSession.shared.dataTask(with: perentryURL) {(data, response, error) in
+                                guard let httpResponse = response as? HTTPURLResponse,
+                                        (200...299).contains(httpResponse.statusCode) else {
+                                        //result = response
+                                        //self.handleServerError(response)
+                                        return
+                                    }
+                                guard let data = data else {
+                                    // no pre entries
+                                    return
+                                }
+                                let perentryJSON = try! JSONSerialization.jsonObject(with: data, options: [])
+                                let arrayPres = perentryJSON as! [[String: Any]]
+                                var newPreentries = 0
+                                for pre in arrayPres {
+                                    var newRider = Rider()
+                                    newRider.id = pre["id"] as? String ?? ""
+                                    if newRider.id != "" {
+                                        newRider.name = pre["name"] as! String
+                                        newRider.racenumber = String(pre["racenumber"] as? Int ?? -1)
+                                        if newRider.racenumber == "-1" {
+                                            // don't enter riders without race numbers
+                                            continue
+                                        }
+                                        newRider.gender = pre["gender"] as! String
+                                        let now = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                                        let yob = Int((pre["dateofbirth"]  as? String ?? " ").prefix(4)) ?? 0
+                                        newRider.age = (now.year ?? 0) - yob
+                                        
+                                        // Check if the rider is already registered
+                                        var alreadyRegistered = false
+                                        for rider in arrayStarters {
+                                            if rider.racenumber == newRider.racenumber {
+                                                alreadyRegistered = true
+                                                break
+                                            }
+                                        }
+                                        if alreadyRegistered {
+                                            continue
+                                        }
+                                        if raceTypes[myConfig.raceType] == "Age" ||
+                                            (raceTypes[myConfig.raceType] == "Crit" && myConfig.championship) {
+                                            var ageClass = 0
+                                            if newRider.gender == "M" {
+                                                ageClass = ((newRider.age - 30 ) / 5 ) + 1
+                                            } else {
+                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
+                                            }
+                                            newRider.racegrade = newRider.gender + "\(ageClass)"
+                                        } else {
+                                            // Check the race grade is valid.  ie could be TBA or suspended
+                                            var gradeFound = false
+                                            for grade in grades {
+                                                for subgrade in subgrades {
+                                                    if (pre["grade"] as! String) == grade + subgrade {
+                                                        gradeFound = true
+                                                        break
+                                                    }
+                                                }
+                                                if gradeFound { break }
+                                            }
+                                            // set the race grade
+                                            if gradeFound {
+                                                newRider.racegrade = pre["grade"] as! String
+                                            } else {
+                                                result = "Rider " + newRider.racenumber + " not graded. "
+                                            }
+                                        }
+                                        // register the rider
+                                        arrayStarters.append(newRider)
+                                        newPreentries = newPreentries + 1
+                                    }
+                                }
+                                getUnplaced()
+                                checkHandicaps()
+                                setStartingGrades()
+                                result = result + String(newPreentries) + " new entries."
+                            }
+                            preTask.resume()
+                        }
+                    }
+                    task.resume()
+                    
+                }) {
+                    Text( "Update\nentries")
+                        .padding()
+                        .foregroundColor(.black)
+                    }
+                    .frame(width: 100, height: 80, alignment: .leading)
+                    .background(Color.green)
+                    .cornerRadius(10)
                 
                 // Load button
                 Button(action: {
@@ -1180,6 +1344,7 @@ struct ContentView: View {
                         writeRiders(riders: data)
                         let JSON = try! JSONSerialization.jsonObject(with: data, options: [])
                         arrayRiders = JSON as! [[String: Any]]
+                        arrayStarters = []
                         // clear persisted starters
                         defaults.set([], forKey: "Starters")
                         result = String(arrayRiders.count) + " riders loaded. "
@@ -1263,60 +1428,62 @@ struct ContentView: View {
                                 var newPreentries = 0
                                 for pre in arrayPres {
                                     var newRider = Rider()
-                                    newRider.id = pre["id"] as! String
-                                    newRider.name = pre["name"] as! String
-                                    newRider.racenumber = String(pre["racenumber"] as? Int ?? -1)
-                                    if newRider.racenumber == "-1" {
-                                        // don't enter riders without race numbers
-                                        continue
-                                    }
-                                    newRider.gender = pre["gender"] as! String
-                                    let now = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-                                    let yob = Int((pre["dateofbirth"]  as? String ?? " ").prefix(4)) ?? 0
-                                    newRider.age = (now.year ?? 0) - yob
-                                    
-                                    // Check if the rider is already registered
-                                    var alreadyRegistered = false
-                                    for rider in arrayStarters {
-                                        if rider.racenumber == newRider.racenumber {
-                                            alreadyRegistered = true
-                                            break
+                                    newRider.id = pre["id"] as? String ?? ""
+                                    if newRider.id != "" {
+                                        newRider.name = pre["name"] as! String
+                                        newRider.racenumber = String(pre["racenumber"] as? Int ?? -1)
+                                        if newRider.racenumber == "-1" {
+                                            // don't enter riders without race numbers
+                                            continue
                                         }
-                                    }
-                                    if alreadyRegistered {
-                                        continue
-                                    }
-                                    if raceTypes[myConfig.raceType] == "Age" ||
-                                        (raceTypes[myConfig.raceType] == "Crit" && myConfig.championship) {
-                                        var ageClass = 0
-                                        if newRider.gender == "M" {
-                                            ageClass = ((newRider.age - 30 ) / 5 ) + 1
-                                        } else {
-                                            ageClass = ((newRider.age - 30 ) / 10 ) + 1
-                                        }
-                                        newRider.racegrade = newRider.gender + "\(ageClass)"
-                                    } else {
-                                        // Check the race grade is valid.  ie could be TBA or suspended
-                                        var gradeFound = false
-                                        for grade in grades {
-                                            for subgrade in subgrades {
-                                                if (pre["grade"] as! String) == grade + subgrade {
-                                                    gradeFound = true
-                                                    break
-                                                }
+                                        newRider.gender = pre["gender"] as! String
+                                        let now = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                                        let yob = Int((pre["dateofbirth"]  as? String ?? " ").prefix(4)) ?? 0
+                                        newRider.age = (now.year ?? 0) - yob
+                                        
+                                        // Check if the rider is already registered
+                                        var alreadyRegistered = false
+                                        for rider in arrayStarters {
+                                            if rider.racenumber == newRider.racenumber {
+                                                alreadyRegistered = true
+                                                break
                                             }
-                                            if gradeFound { break }
                                         }
-                                        // set the race grade
-                                        if gradeFound {
-                                            newRider.racegrade = pre["grade"] as! String
+                                        if alreadyRegistered {
+                                            continue
+                                        }
+                                        if raceTypes[myConfig.raceType] == "Age" ||
+                                            (raceTypes[myConfig.raceType] == "Crit" && myConfig.championship) {
+                                            var ageClass = 0
+                                            if newRider.gender == "M" {
+                                                ageClass = ((newRider.age - 30 ) / 5 ) + 1
+                                            } else {
+                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
+                                            }
+                                            newRider.racegrade = newRider.gender + "\(ageClass)"
                                         } else {
-                                            result = "Rider " + newRider.racenumber + " not graded. "
+                                            // Check the race grade is valid.  ie could be TBA or suspended
+                                            var gradeFound = false
+                                            for grade in grades {
+                                                for subgrade in subgrades {
+                                                    if (pre["grade"] as! String) == grade + subgrade {
+                                                        gradeFound = true
+                                                        break
+                                                    }
+                                                }
+                                                if gradeFound { break }
+                                            }
+                                            // set the race grade
+                                            if gradeFound {
+                                                newRider.racegrade = pre["grade"] as! String
+                                            } else {
+                                                result = "Rider " + newRider.racenumber + " not graded. "
+                                            }
                                         }
+                                        // register the rider
+                                        arrayStarters.append(newRider)
+                                        newPreentries = newPreentries + 1
                                     }
-                                    // register the rider
-                                    arrayStarters.append(newRider)
-                                    newPreentries = newPreentries + 1
                                 }
                                 getUnplaced()
                                 checkHandicaps()
@@ -1329,16 +1496,19 @@ struct ContentView: View {
                     task.resume()
                     
                 }) {
-                    Text(arrayStarters.count > 0 ? "Reload" : "Load")
+                    Text("Load")
                         .padding()
                         .foregroundColor(.black)
                     }
-                    .frame(width: 100, height: 50, alignment: .leading)
+                    .frame(width: 100, height: 80, alignment: .leading)
                     .background(arrayStarters.count > 0 ? Color.orange : Color.green)
                     .cornerRadius(10)
                     
+                }  // HStack
+                    
                 Text(result)
-                Spacer()
+                    .padding(.bottom, 100)
+//                Spacer()
                 .navigationBarTitle("Load", displayMode: .inline)
             }
             .onAppear(perform: {
@@ -1380,17 +1550,17 @@ struct ContentView: View {
         @State var selectedRider = Rider()
         @State var director = [Rider()]
         @State var selectedDirector = 0
-        
+
         func setDirector() {
             director = arrayStarters.filter {$0.racegrade == directorGrade}
             if director.count == 0 {
                 registerDisabled = false
             }
         }
-        
+
         func deleteDirector(id: String) {
             var pointer = 0
-            
+
             for item in arrayStarters {
                 if item.id == id {
                     arrayStarters.remove(at: pointer)
@@ -1402,7 +1572,7 @@ struct ContentView: View {
             }
             registerDisabled = false
         }
-        
+
         var body: some View {
             VStack {
                 Picker("Director", selection: $selectedDirector) {
@@ -1410,7 +1580,7 @@ struct ContentView: View {
                        Text(arrayNames[$0])
                     }
                 }
-                        
+
                 HStack {
                     Button(action: {
                         if arrayRiders.count == 0 {
@@ -1456,25 +1626,28 @@ struct ContentView: View {
                 }
                 .padding(5)
                 if !director.isEmpty {
-                    HStack{
-                        Text(director[0].name)
-                        Spacer()
-                        Button(action: {
-                            deleteDirector(id: director[0].id)
-                        }) {
-                            Text("Remove")
-                                .padding()
-                                .foregroundColor(.black)
-                            }
-                            .frame(width: 100, height: 50, alignment: .leading)
-                            .background(Color.yellow)
-                            .cornerRadius(10)
-                            .buttonStyle(PlainButtonStyle())
+                    List {
+                        HStack{
+                            Text(director[0].name)
+                            Spacer()
+                            Button(action: {
+                                deleteDirector(id: director[0].id)
+                            }) {
+                                Text("Remove")
+                                    .padding()
+                                    .foregroundColor(.black)
+                                }
+                                .frame(width: 100, height: 50, alignment: .leading)
+                                .background(Color.yellow)
+                                .cornerRadius(10)
+                                .buttonStyle(PlainButtonStyle())
+                        }
                     }
+                    .listStyle(PlainListStyle())
                 }
                 Text(directorDetails)
                     .padding(5)
-                
+
                 Spacer()
                 }
                 .onAppear {
@@ -1482,6 +1655,7 @@ struct ContentView: View {
                 }
             .navigationBarTitle("Director", displayMode: .inline)
         }
+
     }
     
     struct MarshalsView: View {
@@ -1681,7 +1855,7 @@ struct ContentView: View {
                     }
                     .listStyle(PlainListStyle())
                     HStack {
-                        Text("Grade")
+                        Text("Grade:")
                         Picker(selection: $selectedGrade, label : Text("")){
                             ForEach(0 ..< grades.count) {
                                 //Spacer()
@@ -1689,10 +1863,11 @@ struct ContentView: View {
                                     //.font(Font.system(size: 60, design: .default))
                             }
                         }
-                        .frame(width: 50)
+                        .frame(width: 40)
                         .clipped()
                         // Add picker for subgrade 1,2
                         if raceTypes[myConfig.raceType] != "Crit" {
+                            Text("Sub:")
                             Picker(selection: $selectedSubGrade, label : Text("")){
                                 ForEach(0 ..< subgrades.count) {
                                     //Spacer()
@@ -1700,7 +1875,7 @@ struct ContentView: View {
                                         //.font(Font.system(size: 60, design: .default))
                                 }
                             }
-                            .frame(width: 50)
+                            .frame(width: 40)
                             .clipped()
                         }
                         
@@ -1779,7 +1954,7 @@ struct ContentView: View {
     struct RegoView: View {
         @State private var selectedGrade = 0
         @State private var selectedSubGrade = 0
-        @ObservedObject var raceNumb = RaceNumber(limit: 3)
+        @State var raceNumb = RaceNumber(limit: 3)
         @State var riderDetails = ""
         @State var riderDetailsColor = Color.black
         @State var registerDisabled = true
@@ -1795,7 +1970,7 @@ struct ContentView: View {
         
         func checkNumb(_ value: String) {
             raceNumb.value = String(value.prefix(raceNumb.limit))
-            let filtered = raceNumb.value.filter { $0.isNumber}
+            let filtered = raceNumb.value.filter { $0.isNumber }
             if raceNumb.value != filtered {
                 raceNumb.value = filtered
             }
@@ -2083,13 +2258,14 @@ struct ContentView: View {
         @State private var selectedSubGrade = 0
         @State private var selectedGender = 0
         @State private var dob = Date()
-        @ObservedObject var visitNumb = RaceNumber(limit: 3)
+        @State var visitNumb = RaceNumber(limit: 3)
         @State var givenName = ""
         @State var surname = ""
         @State var visitorDetails = ""
         @State var registerDisabled = true
         @State var visitor = Rider()
         @State var ageClass = 0
+        @State var visitorDetailsColor = Color.black
         
         func checkNumb(_ value: String) {
             visitNumb.value = String(value.prefix(visitNumb.limit))
@@ -2113,6 +2289,7 @@ struct ContentView: View {
                             .frame(height: 150)
                     } else {
                         Text("Grade")
+                            .padding(.top, 50)
                         Picker(selection: $selectedGrade, label : Text("")){
                             ForEach(0 ..< grades.count) {
                                 //Spacer()
@@ -2122,6 +2299,7 @@ struct ContentView: View {
                         }
                         .frame(width: 50)
                         .clipped()
+                        .padding(.top, 50)
                         if raceTypes[myConfig.raceType] != "Crit" {
                             // Add picker for subgrade 1,2
                             Picker(selection: $selectedSubGrade, label : Text("")){
@@ -2133,6 +2311,7 @@ struct ContentView: View {
                             }
                             .frame(width: 50)
                             .clipped()
+                            .padding(.top, 50)
                         }
                     }
                 }
@@ -2148,11 +2327,13 @@ struct ContentView: View {
                     Text("Given Name")
                     TextField("Given Name", text: $givenName)
                     .frame(width: 150.0)
+                    .disableAutocorrection(true)
                 }.padding(.top, 15)
                 HStack {
                     Text("Surname")
                     TextField("Surname", text: $surname)
                     .frame(width: 150.0)
+                    .disableAutocorrection(true)
                 }.padding(.top, 15)
                 if raceTypes[myConfig.raceType] == "Age" || raceTypes[myConfig.raceType] == "Age Std" {
                     HStack {
@@ -2175,16 +2356,19 @@ struct ContentView: View {
                     // confirm details
                     if visitNumb.value == "" || surname == ""  || givenName == ""{
                         visitorDetails = "Enter race number and names"
+                        visitorDetailsColor = Color.red
                     } else {
                         // check the race number is in 700s
                         if Int(visitNumb.value) ?? 0 < 700 {
                             visitorDetails = "Race number must be in the 700s"
+                            visitorDetailsColor = Color.red
                             return
                         }
                         // check the race number hasn't been used.
                         for starter in arrayStarters {
                             if visitNumb.value == starter.racenumber {
                                 visitorDetails = visitNumb.value + " is already entered"
+                                visitorDetailsColor = Color.red
                                 return
                             }
                         }
@@ -2195,13 +2379,16 @@ struct ContentView: View {
                             let years = (now.year ?? 0) - (yob.year ?? 0)
                             if years < 30 {
                                 visitorDetails = "Rider must be at least 30"
+                                visitorDetailsColor = Color.red
                                 return
                             }
                             // get the age class
                             ageClass = ((years - 30 ) / 5 ) + 1
                             visitorDetails = genders[selectedGender] + String(ageClass) + " = " + String(visitNumb.value) + " - " + surname + " - VISITOR, " + givenName
+                            visitorDetailsColor = Color.black
                         } else {
                             visitorDetails = String(visitNumb.value) + " - " + surname + " - VISITOR, " + givenName
+                            visitorDetailsColor = Color.black
                         }
                         registerDisabled = false
                     }
@@ -2214,6 +2401,7 @@ struct ContentView: View {
                     .background(Color.yellow)
                     .cornerRadius(10)
                 Text(visitorDetails)
+                    .foregroundColor(visitorDetailsColor)
                     .padding()
                 Button(action: {
                     // register the trial rider
@@ -2237,6 +2425,7 @@ struct ContentView: View {
                     getUnplaced()
                     checkHandicaps()
                     visitorDetails = "Registered"
+                    visitorDetailsColor = Color.black
                     visitNumb.value = ""
                     surname = ""
                     givenName = ""
@@ -2250,11 +2439,13 @@ struct ContentView: View {
                     .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: 50, alignment: .leading)
                     .background(registerDisabled ? Color.gray : Color.green)
                     .cornerRadius(10)
-                 Spacer()
+                    .padding(.bottom, 50)
+//                 Spacer()
             }
             
             }.onTapGesture {
                 self.endEditing()
+                checkNumb(visitNumb.value)
                 }
             .navigationBarTitle("Trial Rider", displayMode: .inline)
         }
@@ -2426,9 +2617,11 @@ struct ContentView: View {
         @State var TimingMsg = ""
         @State var displayPlaces = finishTimes
         
-        @ObservedObject var stopWatchManager = StopWatchManager()
+        @ObservedObject var stopWatchManager: StopWatchManager
+        
         // TODO allow for grades to be started together in scratch?? - Or just press start quickly
         // TODO check there is a handicap for each rider -   if raceTypes[raceType] == "Hcp" {}
+        // TODO what to do with TT riders who miss their start time
         
         func getUnstartedGrades() {
             unstartedGrades = []
@@ -2536,429 +2729,435 @@ struct ContentView: View {
             if raceTypes[myConfig.raceType] == "Crit" {
                 Text("Race type " + raceTypes[myConfig.raceType] + " is not timed")
             } else {
-            VStack(alignment: .leading) {
-                HStack {
-                VStack {
-                HStack {
-                
-                if !masterPaired {
-                switch raceTypes[myConfig.raceType] {
-                case "Graded", "Age":
-                    if unstartedGrades.count > 0 {
-                    // select grade to start
-                    Picker(selection: $selectedStartGrade, label : Text("")){
-                        ForEach(0 ..< unstartedGrades.count) {
-                            Text(unstartedGrades[$0])
-                        }
-                    }
-                    .id(unstartedGrades)
-                    .frame(width: 50)
-                    .clipped()
-                    }
-                case "Hcp", "Wheel":
-                    if handicaps.count == 0 {
-                        Text("No grades to start")
-                            .frame(height: buttonHeight)
-                    } else {
-                        // show the grade that is about to start - grades should never start together
-                        Text("  " + stopWatchManager.nextStart)  // pad a bit to the right
-                            .font(Font.body.monospacedDigit())
-                            .frame(height: buttonHeight)
-                    }
-                case "TT", "Age Std" :
+                VStack(alignment: .leading) {
+                    HStack {
                     VStack {
-                        // show a list of riders in start order
-                        if overTheLine > 0 {
-                            Text(stopWatchManager.nextRider)
-                            .font(Font.body.monospacedDigit())
-                            .frame(width: 50, height: buttonHeight/1.7)
-                            .padding()
-                        } else {
-                            Text(stopWatchManager.nextRider)
-                            .font(Font.body.monospacedDigit())
-                            .frame(width: 150, height: buttonHeight/1.7)
-                            .padding()
-                        }
-                        Text(stopWatchManager.nextRiders)
-                        .font(Font.body.monospacedDigit())
-                        .padding()
-                            //.frame(height: buttonHeight*4, alignment: .top)
-                    }
-                default:
-                    Text("") // fill in
-                }
-                
-                // hide start on master and when disabled
-                if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled {
-                // Start button
-                Button(action: {
-                    TimingMsg = "Started."
-                    if !running {
-                        running = true
-                        self.stopWatchManager.storeStartTime()
-                        self.stopWatchManager.startTimer()
-                    }
+                    HStack {
                     
+                    if !masterPaired {
                     switch raceTypes[myConfig.raceType] {
                     case "Graded", "Age":
-                        TimingMsg = unstartedGrades[selectedStartGrade] + " Grade started"
-                        // remove the started grade
-                        for grade in unstartedGrades.indices {
-                            if unstartedGrades[grade] == unstartedGrades[selectedStartGrade] {
-                                // record the grade's start time
-                                var newStart = StartedGrade()
-                                newStart.racegrade = unstartedGrades[grade]
-                                newStart.startTime = Date()
-                                startedGrades.append(newStart)
-                                unstartedGrades.remove(at: grade)
-                                break
+                        if unstartedGrades.count > 0 {
+                        // select grade to start
+                        Picker(selection: $selectedStartGrade, label : Text("")){
+                            ForEach(0 ..< unstartedGrades.count) {
+                                Text(unstartedGrades[$0])
                             }
                         }
-                        if unstartedGrades.count == 0 {
-                            startDisabled = true
-//                            stopDisabled = false
-                            recordDisabled = false
-                            self.stopWatchManager.stopTimer()
+                        .id(unstartedGrades)
+                        .frame(width: 50)
+                        .clipped()
+                        }
+                    case "Hcp", "Wheel":
+                        if handicaps.count == 0 {
+                            Text("No grades to start")
+                                .frame(height: buttonHeight)
                         } else {
-//                            stopDisabled = true
+                            // show the grade that is about to start - grades should never start together
+                            Text("  " + stopWatchManager.nextStart)  // pad a bit to the right
+                                .font(Font.body.monospacedDigit())
+                                .frame(height: buttonHeight)
+                                .padding()
                         }
-                    case "Hcp":
-                        // Just started the 1st grade
-                        startDisabled = true
-                        recordDisabled = false
-//                        stopDisabled = false
+                    case "TT", "Age Std" :
+                        VStack {
+                            // show a list of riders in start order
+                            if overTheLine > 0 {     // if the race is started make the list narrower
+                                Text(stopWatchManager.nextRider)
+                                .font(Font.body.monospacedDigit())
+                                .frame(width: 50, height: buttonHeight/1.7)
+                                .padding()
+                                Text(stopWatchManager.nextRiders)
+                                .font(Font.body.monospacedDigit())
+                                .frame(width: 50)
+                                .padding()
+                            } else {
+                                Text(stopWatchManager.nextRider)
+                                .font(Font.body.monospacedDigit())
+                                .frame(width: 150, height: buttonHeight/1.7)
+                                .padding()
+                                Text(stopWatchManager.nextRiders)
+                                .font(Font.body.monospacedDigit())
+                                .frame(width: 150)
+                                .padding()
+                            }
+                        }
+                    default:
+                        Text("") // fill in
+                    }
+                    
+                    // hide start on master and when disabled
+                    if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled {
+                    // Start button
+                    Button(action: {
+                        TimingMsg = "Started."
+                        if !running {
+                            running = true
+                            self.stopWatchManager.storeStartTime()
+                            self.stopWatchManager.startTimer()
+                        }
+                        
+                        switch raceTypes[myConfig.raceType] {
+                        case "Graded", "Age":
+                            TimingMsg = unstartedGrades[selectedStartGrade] + " Grade started"
+                            // remove the started grade
+                            for grade in unstartedGrades.indices {
+                                if unstartedGrades[grade] == unstartedGrades[selectedStartGrade] {
+                                    // record the grade's start time
+                                    var newStart = StartedGrade()
+                                    newStart.racegrade = unstartedGrades[grade]
+                                    newStart.startTime = Date()
+                                    startedGrades.append(newStart)
+                                    unstartedGrades.remove(at: grade)
+                                    break
+                                }
+                            }
+                            if unstartedGrades.count == 0 {
+                                startDisabled = true
+    //                            stopDisabled = false
+                                recordDisabled = false
+                                self.stopWatchManager.stopTimer()
+                            } else {
+    //                            stopDisabled = true
+                            }
+                        case "Hcp":
+                            // Just started the 1st grade
+                            startDisabled = true
+                            recordDisabled = false
+    //                        stopDisabled = false
+                        case "Secret":
+                            // Just started everyone at once
+                            startDisabled = true
+                            recordDisabled = false
+    //                        stopDisabled = false
+                            for unstartedGrade in unstartedGrades {
+                                var newStartedGrade = StartedGrade()
+                                newStartedGrade.racegrade = unstartedGrade
+                                newStartedGrade.startTime = Date()
+                                startedGrades.append(newStartedGrade)
+                            }
+                            unstartedGrades = []
+                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
+                            raceStarted = true
+                        case "Wheel":
+                            startDisabled = true
+                            recordDisabled = true  // not timed
+                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
+    //                        stopDisabled = false   // timer stops after all grades are started
+                        case "Age Std", "TT":
+                            startDisabled = true
+                            recordDisabled = false
+    //                        stopDisabled = false
+                        default:
+                            startDisabled = true
+                        }
+                    }) {
+                        Text(startBtnTxt)
+                            .padding()
+                            .foregroundColor(.black)
+                        }.disabled(startDisabled)
+                        .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
+                        .background(startDisabled ? Color.gray : Color.green)
+                        .cornerRadius(10)
+                    }
+                    }
+                    } // end HStack group
+                    Text("") // spacer
+                    // hide record and stop buttons on the paired slave
+                    if !peripheralPaired {
+                    if raceTypes[myConfig.raceType] != "Wheel" {
+                        HStack {
+                        Text(" ") // push button away from LHS of screen
+                        // Record button
+                        Button(action: {
+                            overTheLine = finishTimes.count + 1
+                            getUnplaced()
+                            TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+                            // record a finish time
+                            newTime.id = UUID()
+                            newTime.overTheLine = overTheLine
+                            newTime.time = Date() //stopWatchManager.counter
+                            let formatter = DateFormatter()
+                            formatter.timeStyle = .medium
+                            newTime.displayTime = String(format: "%03d", overTheLine) + " - \n" +
+                                formatter.string(from: newTime.time!)
+                            finishTimes.append(newTime)
+                            displayPlaces = finishTimes
+    //                        unplacedSpots.append(newTime.displayTime)
+                        }) {
+                            Text("Record")
+                                .padding()
+                                .foregroundColor(.black)
+                        }
+                        .disabled(recordDisabled || (raceTypes[myConfig.raceType] == "Hcp" && stopWatchManager.nextStart != ""))
+                        .frame(width: 90, height: buttonHeight, alignment: .leading)
+                        .background(recordDisabled || (raceTypes[myConfig.raceType] == "Hcp" && stopWatchManager.nextStart != "") ? Color.gray : Color.yellow)
+                        .cornerRadius(10)
+                        .padding()
+                        }
+                    }
+                    
+    //                if raceTypes[myConfig.raceType] != "Wheel" {
+    //                    // Stop button
+    //                    Button(action: {
+    //                        TimingMsg = "Stop"
+    //                        self.stopWatchManager.stopTimer()
+    //                        running = false
+    //                        startDisabled = true
+    //                        recordDisabled = true
+    //                        stopDisabled = true
+    //
+    //                        // copy the finish time to the global array so they can be assigned in Places
+    //                        for spot in finishTimes.indices {
+    //                            unplacedSpots.append(finishTimes[spot].displayTime)
+    //                        }
+    //                        unplacedSpots.sort()
+    //                    }) {
+    //                        Text("Stop")
+    //                            .padding()
+    //                            .foregroundColor(.black)
+    //
+    //                    }
+    //                    .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
+    //                    .disabled(stopDisabled ||
+    ////                                lockedState ||
+    //                                (raceTypes[myConfig.raceType] == "Hcp" && self.stopWatchManager.nextStart != "") || self.stopWatchManager.stopped)
+    //                    .background(stopDisabled ||
+    ////                                lockedState  ||
+    //                                (raceTypes[myConfig.raceType] == "Hcp" && self.stopWatchManager.nextStart != "" || self.stopWatchManager.stopped) ? Color.gray : Color.red)  //
+    //                    .cornerRadius(10)
+    //                }
+                    }
+                            
+                    Spacer()
+                    }  // end vstack
+                    .padding(.top, 10)
+                        
+                        VStack() {
+                        if !masterPaired &&
+                            (raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age") && unstartedGrades.count > 0 {
+                            // display the stopwatch run time
+                            Text(String(format: "%02.0f", stopWatchManager.hours) + ":" +
+                                String(format: "%02.0f", stopWatchManager.minutes) + ":" +
+                                String(format: "%04.1f", stopWatchManager.seconds))
+                                .font(Font.body.monospacedDigit())
+                                .padding(.top, 40)
+                        }
+
+                        // List of finish times
+                            List { ForEach(displayPlaces.reversed()) { finishTime in
+    //                        Button(action: {
+    //                            displayItem = finishTime.time
+    //                        })
+                                HStack {
+                                Text(finishTime.displayTime).font(Font.body.monospacedDigit())
+                                
+                                // Insert button
+                                Button(action: {
+                                    insertPlace(finishTime)
+                                }) {
+                                    Text("+")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    .background(Color.green)
+                                    .frame(width: 45, height: 50)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                                
+                                // Remove button
+                                Button(action: {
+                                    removePlace(finishTime)
+                                }) {
+                                    Text("-")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    .disabled(allowPlaceDelete(finishTime))
+                                    .background(allowPlaceDelete(finishTime) ? Color.gray : Color.red)
+                                    .frame(width: 45, height: 50)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                
+        //                        {Text(finishTime.displayTime)}
+                            }
+                        }
+                        .listStyle(PlainListStyle())
+    //                    .frame(width: 180)
+                         
+                        Spacer()
+                        }  // end Vstack
+                }
+                    //
+                    Spacer()
+                    HStack {
+                    Text(TimingMsg)
+                        .padding(.bottom, 5)
+                    }
+                    .frame(width: 400, alignment: .center)
+                    
+                } // end VStack
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                    stopWatchManager.resume()
+                }
+                
+                .onAppear(perform: {  // of Timing
+                    if reset {
+                        stopWatchManager.reset()
+                        reset = false  // reset done
+                    }
+                    checkHandicaps()
+                    overTheLine = unplacedTimes()  //unplacedSpots.count
+                    displayPlaces = finishTimes
+                    // TODO change button to Restart and Yellow if restarting
+                    switch raceTypes[myConfig.raceType] {
+                    case "Graded", "Age":
+                        getUnstartedGrades()
+                        if unstartedGrades.count == 0 {
+                            // also needs to be set before onAppear
+                            startDisabled = true
+    //                        stopDisabled = false
+                            TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                        } else {
+                            unstartedGrades.sort()
+                            startDisabled = false
+                            if unstartedGrades.count == 1 {
+                                TimingMsg = String(unstartedGrades.count) + " Grade to start"
+                            } else {
+                                TimingMsg = String(unstartedGrades.count) + " Grades to start"
+                            }
+                        }
+                    case "Hcp", "Wheel":
+                        if handicaps.count == 0 || !handicapsOK {
+                            running = false
+                            startDisabled = true
+                            TimingMsg = "Missing handicaps - " + missingHandicaps
+                        } else if startingHandicaps.count == 0 {
+                            startDisabled = true
+                            TimingMsg = "No riders to start"
+                        } else if stopWatchManager.stopped {
+                            // all grades started
+                            running = false
+                            startDisabled = true
+                            TimingMsg = "All grades started"
+                        } else {
+                            // load the handicaps into the stopWatchManager
+                            // only loads the handicaps that have riders in the handicapped grade
+                            stopWatchManager.loadStarts(handicaps: startingHandicaps)
+                            startDisabled = false
+                            if running {
+                                recordDisabled = false // checks are on button for handicaps still to start
+                            }
+                            TimingMsg = String(startingHandicaps.count) + " starting Grades"
+                        }
                     case "Secret":
-                        // Just started everyone at once
-                        startDisabled = true
-                        recordDisabled = false
-//                        stopDisabled = false
-                        for unstartedGrade in unstartedGrades {
-                            var newStartedGrade = StartedGrade()
-                            newStartedGrade.racegrade = unstartedGrade
-                            newStartedGrade.startTime = Date()
-                            startedGrades.append(newStartedGrade)
+                        // everyone starts together
+                        getUnstartedGrades()
+                        if handicaps.count == 0 || !handicapsOK {
+                            running = false
+                            startDisabled = true
+                            TimingMsg = "Missing handicaps - " + missingHandicaps
+                        } else if startingHandicaps.count == 0 {
+                            startDisabled = true
+                            TimingMsg = "No riders to start"
+                        } else if stopWatchManager.started || raceStarted {
+                            startDisabled = true
+    //                        stopDisabled = false
+                            recordDisabled  = false
+                        } else {
+                            startDisabled = false
                         }
-                        unstartedGrades = []
-                        self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
-                        raceStarted = true
-                    case "Wheel":
-                        startDisabled = true
-                        recordDisabled = true  // not timed
-                        self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
-//                        stopDisabled = false   // timer stops after all grades are started
-                    case "Age Std", "TT":
-                        startDisabled = true
-                        recordDisabled = false
-//                        stopDisabled = false
+                    case "TT":
+                        if peripheralPaired {
+                            if stopWatchManager.started {
+                                startDisabled = true
+                            } else {
+                                startDisabled = false
+                            }
+                            startDisabled = false
+    //                        stopDisabled = true
+                            recordDisabled  = true
+                            stopWatchManager.loadTT(arrayStarters)
+                            return
+                        }
+                        if masterPaired {
+                            getUnplaced()
+                            startDisabled = true
+    //                        stopDisabled = false
+                            recordDisabled  = false
+                            TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                            return
+                        }
+                        if running {    // stopWatchManager.started {
+                            startDisabled = true
+                        } else {
+                            if arrayStarters.count == 0 {
+                                startDisabled = true
+                                TimingMsg = "No riders to start"
+                            } else {
+                                stopWatchManager.loadTT(arrayStarters)
+                                startDisabled = false
+                            }
+                        }
+                    case "Age Std":
+                        TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+                        if peripheralPaired {
+                            if stopWatchManager.started {
+                                startDisabled = true
+                            } else {
+                                startDisabled = false
+                            }
+                            startDisabled = false
+    //                        stopDisabled = true
+                            recordDisabled  = true
+                            stopWatchManager.loadAgeStd(arrayStarters)
+                            return
+                        }
+                        if masterPaired {
+                            getUnplaced()
+                            startDisabled = true
+    //                        stopDisabled = false
+                            recordDisabled  = false
+                            TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                            return
+                        }
+                        if stopWatchManager.started || finishTimes.count > 0  {
+                            startDisabled = true
+                        } else {
+                            if arrayStarters.count == 0 {
+                                startDisabled = true
+                                TimingMsg = "No riders to start"
+                            } else {
+                                stopWatchManager.loadAgeStd(arrayStarters)
+                                startDisabled = false
+                            }
+                        }
                     default:
                         startDisabled = true
                     }
-                }) {
-                    Text(startBtnTxt)
-                        .padding()
-                        .foregroundColor(.black)
-                    }.disabled(startDisabled)
-                    .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
-                    .background(startDisabled ? Color.gray : Color.green)
-                    .cornerRadius(10)
-                }
-                }
-                } // end HStack group
-                Text("") // spacer
-                // hide record and stop buttons on the paired slave
-                if !peripheralPaired {
-                if raceTypes[myConfig.raceType] != "Wheel" {
-                    HStack {
-                    Text(" ") // push button away from LHS of screen
-                    // Record button
-                    Button(action: {
-                        overTheLine = finishTimes.count + 1
-                        getUnplaced()
-                        TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
-                        // record a finish time
-                        newTime.id = UUID()
-                        newTime.overTheLine = overTheLine
-                        newTime.time = Date() //stopWatchManager.counter
-                        let formatter = DateFormatter()
-                        formatter.timeStyle = .medium
-                        newTime.displayTime = String(format: "%03d", overTheLine) + " - " +
-                            formatter.string(from: newTime.time!)
-                        finishTimes.append(newTime)
-                        displayPlaces = finishTimes
-//                        unplacedSpots.append(newTime.displayTime)
-                    }) {
-                        Text("Record")
-                            .padding()
-                            .foregroundColor(.black)
-                    }
-                    .disabled(recordDisabled || (raceTypes[myConfig.raceType] == "Hcp" && stopWatchManager.nextStart != ""))
-                    .frame(width: 100, height: buttonHeight, alignment: .leading)
-                    .background(recordDisabled || (raceTypes[myConfig.raceType] == "Hcp" && stopWatchManager.nextStart != "") ? Color.gray : Color.yellow)
-                    .cornerRadius(10)
-                    }
-                }
+
+    //                if running && !stopWatchManager.stopped {
+    //                    // TODO ???  not sure why this is here
+    //                    self.stopWatchManager.restart()
+    //                }
+                })
                 
-//                if raceTypes[myConfig.raceType] != "Wheel" {
-//                    // Stop button
-//                    Button(action: {
-//                        TimingMsg = "Stop"
-//                        self.stopWatchManager.stopTimer()
-//                        running = false
-//                        startDisabled = true
-//                        recordDisabled = true
-//                        stopDisabled = true
-//
-//                        // copy the finish time to the global array so they can be assigned in Places
-//                        for spot in finishTimes.indices {
-//                            unplacedSpots.append(finishTimes[spot].displayTime)
-//                        }
-//                        unplacedSpots.sort()
-//                    }) {
-//                        Text("Stop")
-//                            .padding()
-//                            .foregroundColor(.black)
-//
-//                    }
-//                    .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
-//                    .disabled(stopDisabled ||
-////                                lockedState ||
-//                                (raceTypes[myConfig.raceType] == "Hcp" && self.stopWatchManager.nextStart != "") || self.stopWatchManager.stopped)
-//                    .background(stopDisabled ||
-////                                lockedState  ||
-//                                (raceTypes[myConfig.raceType] == "Hcp" && self.stopWatchManager.nextStart != "" || self.stopWatchManager.stopped) ? Color.gray : Color.red)  //
-//                    .cornerRadius(10)
-//                }
-                }
-                        
-                Spacer()
-                }  // end vstack
-                .padding(.top, 10)
+    //            Toggle(isOn: bind) {
+    //                Text("Lock")
+    //                    .frame(maxWidth: .infinity, alignment: .trailing)
+    //            }
+    //            .frame(width:120, alignment: .center)
                     
-                    VStack() {
-                    if !masterPaired &&
-                        (raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age") && unstartedGrades.count > 0 {
-                        // display the stopwatch run time
-                        Text(String(format: "%02.0f", stopWatchManager.hours) + ":" +
-                            String(format: "%02.0f", stopWatchManager.minutes) + ":" +
-                            String(format: "%04.1f", stopWatchManager.seconds))
-                            .font(Font.body.monospacedDigit())
-                            .padding(.top, 40)
-                    }
-
-                    // List of finish times
-                        List { ForEach(displayPlaces.reversed()) { finishTime in
-//                        Button(action: {
-//                            displayItem = finishTime.time
-//                        })
-                            HStack {
-                            Text(finishTime.displayTime).font(Font.body.monospacedDigit())
-                            
-                            // Insert button
-                            Button(action: {
-                                insertPlace(finishTime)
-                            }) {
-                                Text("+")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                .background(Color.green)
-                                .frame(width: 45, height: 50)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
-                            
-                            // Remove button
-                            Button(action: {
-                                removePlace(finishTime)
-                            }) {
-                                Text("-")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                .disabled(allowPlaceDelete(finishTime))
-                                .background(allowPlaceDelete(finishTime) ? Color.gray : Color.red)
-                                .frame(width: 45, height: 50)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                            
-    //                        {Text(finishTime.displayTime)}
-                        }
-                    }
-                    .listStyle(PlainListStyle())
-//                    .frame(width: 180)
-                     
-                    Spacer()
-                    }  // end vstack
-            }
-                //
-                Spacer()
-                HStack {
-                Text(TimingMsg)
-                    .padding(.bottom, 5)
-                }
-                .frame(width: 400, alignment: .center)
                 
-            } // end VStack
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                stopWatchManager.resume()
+                .navigationBarTitle("Timing", displayMode: .inline)
             }
-            
-            .onAppear(perform: {  // of Timing
-                if reset {
-                    stopWatchManager.reset()
-                    reset = false  // reset done
-                }
-                checkHandicaps()
-                overTheLine = unplacedTimes()  //unplacedSpots.count
-                displayPlaces = finishTimes
-                // TODO change button to Restart and Yellow if restarting
-                switch raceTypes[myConfig.raceType] {
-                case "Graded", "Age":
-                    getUnstartedGrades()
-                    if unstartedGrades.count == 0 {
-                        // also needs to be set before onAppear
-                        startDisabled = true
-//                        stopDisabled = false
-                        TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
-                    } else {
-                        unstartedGrades.sort()
-                        startDisabled = false
-                        if unstartedGrades.count == 1 {
-                            TimingMsg = String(unstartedGrades.count) + " Grade to start"
-                        } else {
-                            TimingMsg = String(unstartedGrades.count) + " Grades to start"
-                        }
-                    }
-                case "Hcp", "Wheel":
-                    if handicaps.count == 0 || !handicapsOK {
-                        running = false
-                        startDisabled = true
-                        TimingMsg = "Missing handicaps - " + missingHandicaps
-                    } else if startingHandicaps.count == 0 {
-                        startDisabled = true
-                        TimingMsg = "No riders to start"
-                    } else if stopWatchManager.stopped {
-                        // all grades started
-                        running = false
-                        startDisabled = true
-                        TimingMsg = "All grades started"
-                    } else {
-                        // load the handicaps into the stopWatchManager
-                        // only loads the handicaps that have riders in the handicapped grade
-                        stopWatchManager.loadStarts(handicaps: startingHandicaps)
-                        startDisabled = false
-                        if running {
-                            recordDisabled = false // checks are on button for handicaps still to start
-                        }
-                        TimingMsg = String(startingHandicaps.count) + " starting Grades"
-                    }
-                case "Secret":
-                    // everyone starts together
-                    getUnstartedGrades()
-                    if handicaps.count == 0 || !handicapsOK {
-                        running = false
-                        startDisabled = true
-                        TimingMsg = "Missing handicaps - " + missingHandicaps
-                    } else if startingHandicaps.count == 0 {
-                        startDisabled = true
-                        TimingMsg = "No riders to start"
-                    } else if stopWatchManager.started || raceStarted {
-                        startDisabled = true
-//                        stopDisabled = false
-                        recordDisabled  = false
-                    } else {
-                        startDisabled = false
-                    }
-                case "TT":
-                    if peripheralPaired {
-                        if stopWatchManager.started {
-                            startDisabled = true
-                        } else {
-                            startDisabled = false
-                        }
-                        startDisabled = false
-//                        stopDisabled = true
-                        recordDisabled  = true
-                        stopWatchManager.loadTT(arrayStarters)
-                        return
-                    }
-                    if masterPaired {
-                        getUnplaced()
-                        startDisabled = true
-//                        stopDisabled = false
-                        recordDisabled  = false
-                        TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
-                        return
-                    }
-                    if running {    // stopWatchManager.started {
-                        startDisabled = true
-                    } else {
-                        if arrayStarters.count == 0 {
-                            startDisabled = true
-                            TimingMsg = "No riders to start"
-                        } else {
-                            stopWatchManager.loadTT(arrayStarters)
-                            startDisabled = false
-                        }
-                    }
-                case "Age Std":
-                    TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
-                    if peripheralPaired {
-                        if stopWatchManager.started {
-                            startDisabled = true
-                        } else {
-                            startDisabled = false
-                        }
-                        startDisabled = false
-//                        stopDisabled = true
-                        recordDisabled  = true
-                        stopWatchManager.loadAgeStd(arrayStarters)
-                        return
-                    }
-                    if masterPaired {
-                        getUnplaced()
-                        startDisabled = true
-//                        stopDisabled = false
-                        recordDisabled  = false
-                        TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
-                        return
-                    }
-                    if stopWatchManager.started || finishTimes.count > 0  {
-                        startDisabled = true
-                    } else {
-                        if arrayStarters.count == 0 {
-                            startDisabled = true
-                            TimingMsg = "No riders to start"
-                        } else {
-                            stopWatchManager.loadAgeStd(arrayStarters)
-                            startDisabled = false
-                        }
-                    }
-                default:
-                    startDisabled = true
-                }
-
-//                if running && !stopWatchManager.stopped {
-//                    // TODO ???  not sure why this is here
-//                    self.stopWatchManager.restart()
-//                }
-            })
-            
-//            Toggle(isOn: bind) {
-//                Text("Lock")
-//                    .frame(maxWidth: .infinity, alignment: .trailing)
-//            }
-//            .frame(width:120, alignment: .center)
-                
-            
-            .navigationBarTitle("Timing", displayMode: .inline)
-        }
             
         }
     }
     
     struct PlacesView: View {
-        @State private var selectedGrade = -1
+        @State private var selectedGrade = 0
         @State var riderDetails = ""
         @State var selectedRider = Rider()
         @State var listHeight: Double = fullListHeight
@@ -3423,127 +3622,131 @@ struct ContentView: View {
         var body: some View {
             Background {
                 VStack{
+//                VStack{
                     List { ForEach(displayStarters , id: \.racenumber) { rider in   //
-                        if (!myConfig.stage && (rider.place != "" || rider.overTheLine != "")) ||
+                        if (!myConfig.stage && (rider.place != "" || rider.overTheLine != "")  &&
+                            // show all riders for non crits  or Either show all riders or restrict by grade
+                            ((raceTypes[myConfig.raceType] != "Crit") || (self.selectedGrade == 0 || (self.selectedGrade != 0 && startingGrades[self.selectedGrade - 1] == rider.racegrade)) )
+                            ) ||
                             (myConfig.stage && (rider.stageResults[myConfig.currentStage].place != "" || rider.stageResults[myConfig.currentStage].overTheLine != ""))  {
-                        HStack{
-                            Text(displayName(rider: rider))
-                            Spacer()
-                            
-                            // Promote button
-                            Button(action: {
-                                promote(racenumber: rider.racenumber)
-                                riderDetails = rider.racenumber + " promoted"
-                                sortPlaces()
-                            }) {
-                                Image(systemName: "arrow.up")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                // don't allow DNFed riders in timed events to be promoted
-                            .disabled((!myConfig.stage && ((rider.place == bestPlace(grade: rider.racegrade) && raceTypes[myConfig.raceType] == "Crit") || rider.overTheLine == bestPlace() || (rider.place == "DNF" && raceTypes[myConfig.raceType] != "Crit"))) ||
-                                    (myConfig.stage && (rider.stageResults[myConfig.currentStage].overTheLine == bestPlace()) || rider.stageResults[myConfig.currentStage].place == "DNF"))
-                            .background((!myConfig.stage && ( (rider.place == bestPlace(grade: rider.racegrade) && raceTypes[myConfig.raceType] == "Crit") || rider.overTheLine == bestPlace() || (rider.place == "DNF" && raceTypes[myConfig.raceType] != "Crit"))) ||
-                                    (myConfig.stage && (rider.stageResults[myConfig.currentStage].overTheLine == bestPlace()  || rider.stageResults[myConfig.currentStage].place == "DNF")) ? Color.gray : Color.green)
-                                .frame(width: 40, height: 50)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
-                            
-                            // Demote button
-                            Button(action: {
-                                demote(racenumber: rider.racenumber)
-                                riderDetails = rider.racenumber + " demoted"
-                                sortPlaces()
-                            }) {
-                                Image(systemName: "arrow.down")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                .disabled((!myConfig.stage && (rider.place == "DNF" || rider.overTheLine == "DNF")) ||
-                                    (myConfig.stage && (rider.stageResults[myConfig.currentStage].place == "DNF" || rider.stageResults[myConfig.currentStage].overTheLine == "DNF")))
-                                .frame(width: 40, height: 50)
-                                .background((!myConfig.stage && (rider.place == "DNF" || rider.overTheLine == "DNF")) ||
-                                    (myConfig.stage && (rider.stageResults[myConfig.currentStage].place == "DNF" || rider.stageResults[myConfig.currentStage].overTheLine == "DNF")) ? Color.gray : Color.yellow)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
-                            
-                            // Remove button
-                            Button(action: {
-                                remove(racenumber: rider.racenumber)
-                                riderDetails = rider.racenumber + " removed from placings"
-                                sortPlaces()
-                            }) {
-                                Image(systemName: "bin.xmark") //Text("X")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                .frame(width: 40, height: 50)
-                                .background(Color.red)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
-                            }
+                            HStack{
+                                Text(displayName(rider: rider))
+                                Spacer()
+                                
+                                // Promote button
+                                Button(action: {
+                                    promote(racenumber: rider.racenumber)
+                                    riderDetails = rider.racenumber + " promoted"
+                                    sortPlaces()
+                                }) {
+                                    Image(systemName: "arrow.up")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    // don't allow DNFed riders in timed events to be promoted
+                                .disabled((!myConfig.stage && ((rider.place == bestPlace(grade: rider.racegrade) && raceTypes[myConfig.raceType] == "Crit") || rider.overTheLine == bestPlace() || (rider.place == "DNF" && raceTypes[myConfig.raceType] != "Crit"))) ||
+                                        (myConfig.stage && (rider.stageResults[myConfig.currentStage].overTheLine == bestPlace()) || rider.stageResults[myConfig.currentStage].place == "DNF"))
+                                .background((!myConfig.stage && ( (rider.place == bestPlace(grade: rider.racegrade) && raceTypes[myConfig.raceType] == "Crit") || rider.overTheLine == bestPlace() || (rider.place == "DNF" && raceTypes[myConfig.raceType] != "Crit"))) ||
+                                        (myConfig.stage && (rider.stageResults[myConfig.currentStage].overTheLine == bestPlace()  || rider.stageResults[myConfig.currentStage].place == "DNF")) ? Color.gray : Color.green)
+                                    .frame(width: 40, height: 50)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                                
+                                // Demote button
+                                Button(action: {
+                                    demote(racenumber: rider.racenumber)
+                                    riderDetails = rider.racenumber + " demoted"
+                                    sortPlaces()
+                                }) {
+                                    Image(systemName: "arrow.down")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    .disabled((!myConfig.stage && (rider.place == "DNF" || rider.overTheLine == "DNF")) ||
+                                        (myConfig.stage && (rider.stageResults[myConfig.currentStage].place == "DNF" || rider.stageResults[myConfig.currentStage].overTheLine == "DNF")))
+                                    .frame(width: 40, height: 50)
+                                    .background((!myConfig.stage && (rider.place == "DNF" || rider.overTheLine == "DNF")) ||
+                                        (myConfig.stage && (rider.stageResults[myConfig.currentStage].place == "DNF" || rider.stageResults[myConfig.currentStage].overTheLine == "DNF")) ? Color.gray : Color.yellow)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                                
+                                // Remove button
+                                Button(action: {
+                                    remove(racenumber: rider.racenumber)
+                                    riderDetails = rider.racenumber + " removed from placings"
+                                    sortPlaces()
+                                }) {
+                                    Image(systemName: "bin.xmark") //Text("X")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    .frame(width: 40, height: 50)
+                                    .background(Color.red)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                            }  // end HStack
                     }
                 }
                 }
                 .listStyle(PlainListStyle())
                 
-                }
+//                }
                 .onAppear(perform: {
                     initStageResults()
                     sortPlaces()
                 })
                 .frame(height: CGFloat(listHeight))
-                
-                
-                Text(riderDetails)
-                .padding(.top, 5)
 
                 HStack {
-                    HStack {
-                        if raceTypes[myConfig.raceType] != "Crit" && raceTypes[myConfig.raceType] != "Wheel" {
-                            // show the over the line places and times recorded in the Timer
-                            Picker(selection: $unplacedSpot, label : Text("000")) {
-                                ForEach(0 ..< unplacedSpots.count) {
-                                    Text(unplacedSpots[$0].displayTime)
-                                }
-                            }
-                            .id(UUID())
-                            .frame(width: 190)
-                            .clipped()
-                        } else if raceTypes[myConfig.raceType] == "Crit" {
-                            // show grades to select riders from plus one with all riders
-                            Picker(selection: Binding(
-                                    get: {self.selectedGrade},
-                                    set: {self.selectedGrade = $0
-                                        getUnplaced(grade: self.selectedGrade)
-                                        unplacedNumb = 0
-                                    }), label : Text("")){
-                                
-                                ForEach(-1 ..< startingGrades.count) {
-                                    if $0 == -1 {
-                                        Text("All")
-                                    } else {
-                                        Text(startingGrades[$0])
+                    VStack {
+                        Text(riderDetails)
+                        HStack {  // for place and rider pickers
+                            if raceTypes[myConfig.raceType] != "Crit" && raceTypes[myConfig.raceType] != "Wheel" {
+                                // show the over the line places and times recorded in the Timer
+                                Picker(selection: $unplacedSpot, label : Text("000")) {
+                                    ForEach(0 ..< unplacedSpots.count) {
+                                        Text(unplacedSpots[$0].displayTime)
                                     }
                                 }
+                                .id(UUID())
+                                .frame(width: 190)
+                                .clipped()
+                            } else if raceTypes[myConfig.raceType] == "Crit" {
+                                // show grades to select riders from plus one with all riders
+                                Picker(selection: Binding(
+                                        get: {self.selectedGrade},
+                                        set: {self.selectedGrade = $0
+                                            getUnplaced(grade: self.selectedGrade)
+                                            unplacedNumb = 0
+                                            // only display placed list for that grade
+                                        }), label : Text("")){
+                                    
+                                    ForEach(-1 ..< startingGrades.count) {
+                                        if $0 == -1 {
+                                            Text("All")
+                                        } else {
+                                            Text(startingGrades[$0])
+                                        }
+                                    }
+                                }
+                                .id(UUID())
+                                .frame(width: 50)
+                                .clipped()
+                            }
+                            
+                            Picker("Rider", selection: $unplacedNumb) {
+                                ForEach(0 ..< unplacedRiders.count) {
+                                   Text(unplacedRiders[$0])
+                                }
                             }
                             .id(UUID())
-                            .frame(width: 50)
+                            .frame(width: 60)
                             .clipped()
                         }
-                        
-                        Picker("Rider", selection: $unplacedNumb) {
-                            ForEach(0 ..< unplacedRiders.count) {
-                               Text(unplacedRiders[$0])
-                            }
-                        }
-                        .id(UUID())
-                        .frame(width: 60)
-                        .clipped()
+                        .padding(.top, 10)
                     }
-                    .padding(.top, 10)
                     
-                    VStack {
+                    VStack {  // Place and DNF buttons
                         
                     // Place Button
                     Button(action: {
@@ -3754,8 +3957,10 @@ struct ContentView: View {
                         .frame(width: 80, height: 50, alignment: .leading)
                         .background(unplacedRiders.count == 0 ? Color.gray : Color.yellow)
                         .cornerRadius(10)
-                    }
-                } // end VStack of two buttons
+                    }  // end VStack of two buttons
+                }
+                .padding(.top, 5)
+                } // end VStack
             }
             
 //            .onTapGesture {  // closes the keyboard when user taps on background
@@ -4178,6 +4383,13 @@ struct ContentView: View {
                         if starter.place == "" {
                             outputPlace = ""
                             points = ""
+                            if starter.racegrade == directorGrade {
+                                outputPlace = "10000"
+                                points = "20"
+                            } else if starter.racegrade == marshalGrade {
+                                outputPlace = "10000"
+                                points = "10"
+                            }
                         } else if starter.place == "DNF" || starter.overTheLine == "DNF" {
                             outputPlace = "10000"
                             if !myConfig.championship {
@@ -4185,12 +4397,6 @@ struct ContentView: View {
                             } else {
                                 points = "0"
                             }
-                        } else if starter.racegrade == directorGrade {
-                            outputPlace = "10000"
-                            points = "20"
-                        } else if starter.racegrade == marshalGrade {
-                            outputPlace = "10000"
-                            points = "10"
                         } else if Int(starter.racenumber) ?? 700 > 699 {
                             // no points for visitors
                             outputPlace = starter.place
@@ -4470,30 +4676,30 @@ struct ContentView: View {
         }
     }
     
-    struct RegistrationsView: View {
-        
-        var body: some View {
-            VStack (alignment: .leading) {
-                Group{
-                    NavigationLink(
-                        destination: DirectorView())
-                        { Text("Director").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: MarshalsView())
-                        { Text("Marshals").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: TrialView())
-                        { Text("Trial Rider").padding(.top, listPad)}
-                    NavigationLink(
-                        destination: RegoView())
-                        { Text("Rider").padding(.top, listPad)}
-                }
-                Spacer()
-            }
-
-            .navigationBarTitle("Registrations", displayMode: .inline)
-        }
-    }
+//    struczt RegistrationsView: View {
+//
+//        var body: some View {
+//            VStack (alignment: .leading) {
+//                Group{
+//                    NavigationLink(
+//                        destination: DirectorView())
+//                        { Text("Director").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: MarshalsView())
+//                        { Text("Marshals").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: TrialView())
+//                        { Text("Trial Rider").padding(.top, listPad)}
+//                    NavigationLink(
+//                        destination: RegoView())
+//                        { Text("Rider").padding(.top, listPad)}
+//                }
+//                Spacer()
+//            }
+//
+//            .navigationBarTitle("Registrations", displayMode: .inline)
+//        }
+//    }
     
     struct MenuView: View {
         @Binding var selectedView: String
@@ -4719,7 +4925,7 @@ struct ContentView: View {
                     }
                 }
                 .padding(.top, 18)
-                Spacer()
+//                Spacer()
                 .padding(.bottom, 500)
                 }
             }
@@ -4734,13 +4940,20 @@ struct ContentView: View {
     struct MainView: View {
          
         var body: some View {
+            let nsObject: AnyObject? = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as AnyObject
+            let version = nsObject as! String
+            
             VStack(alignment: .leading) {
                 Text("Race date: " + myConfig.raceDate)
                 Text("Race type: " + raceTypes[myConfig.raceType])
-                Text("Entries: " + String(arrayStarters.count))
+                Text("Officals: " + String(officalCount()))
+                Text("Entries: " + String(riderCount()))
                 Text(msg)
                 .frame(width: 300, alignment: .center)
                 .padding(.top, 100)
+                Text("SORS Version: " + version)
+                .frame(width: 300, alignment: .center)
+                .padding(.top, 50)
             }
         }
     }
@@ -4815,7 +5028,7 @@ struct ContentView: View {
                     .disabled(self.showMenu ? true : false)
                     .gesture(drag)
                 case "Timing":
-                    TimingView()
+                    TimingView(stopWatchManager: stopWatchManager)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(x: self.showMenu ? geometry.size.width/2 : 0)
                     .disabled(self.showMenu ? true : false)
