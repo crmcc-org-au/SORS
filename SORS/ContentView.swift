@@ -117,6 +117,7 @@ let genders = ["M","F"]
 let grades = ["A","B","C","D","E","F","G"]
 let subgrades = ["","1","2"]
 let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  1st 2 used for stage races
+let unknownGrade = 999
 
 let bonusTypes = ["Sprint","Prime"]    // bonus to be applied to a stage type
 
@@ -406,7 +407,7 @@ func gradeIndex(grade: String) -> Int {
             return i
         }
     }
-    return 999
+    return unknownGrade
 }
 
 func setStartTime(id: String) {
@@ -2064,6 +2065,11 @@ struct ContentView: View {
                                 case "Graded", "Hcp", "TT", "Secret":
                                     riderDetails = String(numb) + " - " + selectedRider.name + "  Grade: " + grade + String(subgrade)
                                     selectedGrade = gradeIndex(grade: grade)
+                                    if selectedGrade  == unknownGrade {
+                                        // the rider's grade has not been set to one of the defined grades
+                                        riderDetails = riderDetails + "\n Default grade C"
+                                        selectedGrade = gradeIndex(grade: "C")
+                                    }
                                     selectedSubGrade = subgrade
                                 case "Crit", "Wheel":
                                     if myConfig.championship {
@@ -2077,6 +2083,11 @@ struct ContentView: View {
                                     } else {
                                         riderDetails = String(numb) + " - " + selectedRider.name + " Crit: " + criteriumgrade
                                         selectedGrade = gradeIndex(grade: criteriumgrade)
+                                        if selectedGrade  == unknownGrade {
+                                            // the rider's grade has not been set to one of the defined grades
+                                            riderDetails = riderDetails + "\n Default grade C"
+                                            selectedGrade = gradeIndex(grade: "C")
+                                        }
                                     }
                                 default:
                                     riderDetails = "race type " + raceTypes[myConfig.raceType] + " not supported"
@@ -3538,7 +3549,7 @@ struct ContentView: View {
         }
         
         func bestPlace(grade: String = "")  -> String {
-            var count = 999
+            var count = 999  // large number to start from
             for index in arrayStarters.indices {
                 if grade == "" {
                     if arrayStarters[index].overTheLine != "DNF"  && arrayStarters[index].overTheLine != "" {
@@ -3772,10 +3783,12 @@ struct ContentView: View {
                                 if unplacedRiders[unplacedNumb] == arrayStarters[index].racenumber {
                                     if raceTypes[myConfig.raceType] == "TT" {
                                         arrayStarters[index].stageResults[myConfig.currentStage].overTheLine = hcpPlace()
+                                        riderDetails = arrayStarters[index].stageResults[myConfig.currentStage].overTheLine
                                         arrayStarters[index].stageResults[myConfig.currentStage].finishTime = t.time
                                         arrayStarters[index].stageResults[myConfig.currentStage].raceTime = t.time!.timeIntervalSince(arrayStarters[index].stageResults[myConfig.currentStage].startTime!)
                                     } else if raceTypes[myConfig.raceType] == "Graded" {
                                         arrayStarters[index].stageResults[myConfig.currentStage].place = nextPlace(grade: arrayStarters[index].racegrade)
+                                        riderDetails = arrayStarters[index].stageResults[myConfig.currentStage].place
                                         for grade in startedGrades {
                                             if arrayStarters[index].racegrade == grade.racegrade {
                                                 arrayStarters[index].stageResults[myConfig.currentStage].startTime = grade.startTime!
@@ -3795,7 +3808,7 @@ struct ContentView: View {
                                     // check that there is a finish time
                                     if arrayStarters[index].stageResults[myConfig.currentStage].finishTime != nil {
                                         arrayStarters[index].stageResults[myConfig.currentStage].displayTime = dateAsTime(arrayStarters[index].stageResults[myConfig.currentStage].finishTime!)}
-                                    riderDetails = arrayStarters[index].racenumber + " placed"
+                                    riderDetails = arrayStarters[index].racenumber + " placed " + riderDetails
                                     getUnplaced()
                                     getUnplacedSpots()
                                     unplacedNumb = max(0, unplacedNumb - 1)  // need to reset picker index after updating array
@@ -3812,7 +3825,7 @@ struct ContentView: View {
                                 // TODO next line is throwing index out of range errors
                                 if unplacedRiders[unplacedNumb] == arrayStarters[index].racenumber {
                                     arrayStarters[index].place = nextPlace(grade: arrayStarters[index].racegrade)
-                                    riderDetails = arrayStarters[index].racenumber + " placed"
+                                    riderDetails = arrayStarters[index].racenumber + " placed " + arrayStarters[index].place
                                     getUnplaced(grade: self.selectedGrade)
                                     unplacedNumb = max(0, unplacedNumb - 1)
                                     break
@@ -3825,7 +3838,7 @@ struct ContentView: View {
                                 if unplacedRiders[unplacedNumb] == arrayStarters[index].racenumber {
                                     arrayStarters[index].overTheLine = hcpPlace()
                                     // arrayStarters[index].place = nextPlace(grade: arrayStarters[index].racegrade)
-                                    riderDetails = arrayStarters[index].racenumber + " placed"
+                                    riderDetails = arrayStarters[index].racenumber + " placed " + arrayStarters[index].overTheLine
                                     getUnplaced()
                                     getUnplacedSpots()
                                     unplacedNumb = max(0, unplacedNumb - 1)
@@ -3852,10 +3865,12 @@ struct ContentView: View {
                                 if unplacedRiders[unplacedNumb] == arrayStarters[index].racenumber {
                                     if raceTypes[myConfig.raceType] == "Hcp" {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
+                                        riderDetails = arrayStarters[index].overTheLine
                                         arrayStarters[index].finishTime = t.time
                                         arrayStarters[index].raceTime = t.time!.timeIntervalSince(arrayStarters[index].startTime!)
                                     } else if raceTypes[myConfig.raceType] == "TT" {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
+                                        riderDetails = arrayStarters[index].overTheLine
                                         arrayStarters[index].finishTime = t.time
                                         // start times are not set on master of paired devices
                                         if !masterPaired {
@@ -3863,6 +3878,7 @@ struct ContentView: View {
                                         }
                                     } else if raceTypes[myConfig.raceType] == "Age Std" {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
+                                        riderDetails = arrayStarters[index].overTheLine
                                         arrayStarters[index].finishTime = t.time
                                         // start times are not set on master of paired devices
                                         if !masterPaired {
@@ -3871,6 +3887,7 @@ struct ContentView: View {
                                         arrayStarters[index].place = nextPlaceByGender(gender: arrayStarters[index].gender)
                                     } else if raceTypes[myConfig.raceType] == "Secret" {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
+                                        riderDetails = arrayStarters[index].overTheLine
                                         arrayStarters[index].finishTime = t.time
                                         for grade in startedGrades {
                                             if arrayStarters[index].racegrade == grade.racegrade {
@@ -3888,6 +3905,7 @@ struct ContentView: View {
                                     } else if raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age" {
                                         // set places in Results
                                         arrayStarters[index].place = nextPlace(grade: arrayStarters[index].racegrade)
+                                        riderDetails = arrayStarters[index].place
                                         for grade in startedGrades {
                                             if arrayStarters[index].racegrade == grade.racegrade {
                                                 arrayStarters[index].startTime = grade.startTime!
@@ -3907,7 +3925,7 @@ struct ContentView: View {
                                     if arrayStarters[index].finishTime != nil {
                                         arrayStarters[index].displayTime = dateAsTime(arrayStarters[index].finishTime!)  // TODO Check for abort
                                     }
-                                    riderDetails = arrayStarters[index].racenumber + " placed"
+                                    riderDetails = arrayStarters[index].racenumber + " placed " + riderDetails
                                     getUnplaced()
                                     getUnplacedSpots()
                                     unplacedNumb = max(0, unplacedNumb - 1)  // need to reset picker index after updating array
