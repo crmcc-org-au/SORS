@@ -67,6 +67,13 @@ struct SORSApp: App {
                 unstartedGrades = decoded
             }
         }
+        if let items = UserDefaults.standard.data(forKey: "startedGrades") {
+            let decoder = JSONDecoder()
+            if let decoded = try? decoder.decode([StartedGrade].self, from: items) {
+                startedGrades = decoded
+            }
+        }
+        
         if myConfig.stage {
             if myConfig.stages.count == 0 {
                 myConfig.raceType = 0

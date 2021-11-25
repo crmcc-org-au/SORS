@@ -226,7 +226,7 @@ class StopWatchManager: ObservableObject {
             
         }
         if sortedHandicaps.count > 0 {
-            for i in 1...(sortedHandicaps.count - 1) {
+            for i in 0...(sortedHandicaps.count - 1) {
                 sortedHandicaps[i].time = sortedHandicaps[i].time - trimTime
             }
         }

@@ -194,7 +194,6 @@ didSet {
     }
 }
 
-// TODO use started grades in restart
 var startedGrades = [StartedGrade]() {   // list of grades that have started
 didSet {
         let encoder = JSONEncoder()
@@ -664,6 +663,7 @@ struct ContentView: View {
     @State var showMenu = false
     @State var selectedView = "Main"
     @StateObject var stopWatchManager = StopWatchManager()
+    @State var dragEnable = true
     
     struct Background<Content: View>: View {
         private var content: Content
@@ -1551,6 +1551,7 @@ struct ContentView: View {
         @State var selectedRider = Rider()
         @State var director = [Rider()]
         @State var selectedDirector = 0
+        @State var mode: EditMode = .inactive
 
         func setDirector() {
             director = arrayStarters.filter {$0.racegrade == directorGrade}
@@ -1631,6 +1632,7 @@ struct ContentView: View {
                         HStack{
                             Text(director[0].name)
                             Spacer()
+                            if mode == EditMode.active {
                             Button(action: {
                                 deleteDirector(id: director[0].id)
                             }) {
@@ -1642,9 +1644,14 @@ struct ContentView: View {
                                 .background(Color.yellow)
                                 .cornerRadius(10)
                                 .buttonStyle(PlainButtonStyle())
+                            }
                         }
                     }
                     .listStyle(PlainListStyle())
+                    .toolbar {
+                        EditButton()
+                    }
+                    .environment(\.editMode, $mode)
                 }
                 Text(directorDetails)
                     .padding(5)
@@ -1665,6 +1672,7 @@ struct ContentView: View {
         @State var selectedRider = Rider()
         @State var marshals = [Rider()]
         @State var selectedMarshal = 0
+        @State var mode: EditMode = .inactive
         
         func setMarshals() {
             marshals = arrayStarters.filter {$0.racegrade == marshalGrade}
@@ -1742,6 +1750,7 @@ struct ContentView: View {
                     HStack{
                         Text(rider.name)
                         Spacer()
+                        if mode == EditMode.active {
                         Button(action: {
                             deleteMarshal(id: rider.id)
                             arrayNames.append(rider.name)
@@ -1755,10 +1764,15 @@ struct ContentView: View {
                             .background(Color.yellow)
                             .cornerRadius(10)
                             .buttonStyle(PlainButtonStyle())
+                        }
                     }
                     }
                 }
                 .listStyle(PlainListStyle())
+                .toolbar {
+                    EditButton()
+                }
+                .environment(\.editMode, $mode)
                 
                 Text(marshalDetails)
                     .padding(5)
@@ -2466,6 +2480,7 @@ struct ContentView: View {
         @State var selectedGrade = 0
         @State private var selectedSubGrade = 0
         @State var starts: [Rider] = []
+        @State var mode: EditMode = .inactive
         
         func setStarts() {
             // sert the starts array used for dynamic updating of the view
@@ -2588,6 +2603,7 @@ struct ContentView: View {
                     }
                     Spacer()
                     // Remove rider from start list
+                    if mode == EditMode.active {
                     Button(action: {
                         delete(racenumber: rider.racenumber)
                     }) {
@@ -2601,10 +2617,15 @@ struct ContentView: View {
                         // TODO check stage
                         .background(rider.place != "" || rider.overTheLine != "" ? Color.gray : Color.yellow)
                         .disabled(rider.place != "" || rider.overTheLine != "")  // don't allow placed riders to be removed
+                    }
                 }
                 }
             }
             .listStyle(PlainListStyle())
+            .toolbar {
+                EditButton()
+            }
+            .environment(\.editMode, $mode)
             
             Spacer()
             if starts.count == 1 {
@@ -2627,6 +2648,7 @@ struct ContentView: View {
         @State var startBtnTxt = "Start"
         @State var TimingMsg = ""
         @State var displayPlaces = finishTimes
+        @State var mode: EditMode = .inactive
         
         @ObservedObject var stopWatchManager: StopWatchManager
         
@@ -2678,12 +2700,12 @@ struct ContentView: View {
                         }
                     }
                     finishTimes[i].overTheLine = finishTimes[i].overTheLine + 1
-                    finishTimes[i].displayTime = String(format: "%03d", finishTimes[i].overTheLine) + " - " +
+                    finishTimes[i].displayTime = String(format: "%03d", finishTimes[i].overTheLine) + " - \n" +
                         formatter.string(from: finishTimes[i].time!)
                 }
             }
             newTime.time = finishTime.time //set the same time
-            newTime.displayTime = String(format: "%03d", newTime.overTheLine) + " - " +
+            newTime.displayTime = String(format: "%03d", newTime.overTheLine) + " - \n" +
                 formatter.string(from: newTime.time!)
             finishTimes.append(newTime)
             finishTimes.sort {return $0.overTheLine < $1.overTheLine}
@@ -2703,7 +2725,7 @@ struct ContentView: View {
                             for j in i...(finishTimes.count - 1) {
                                 // move up the other times
                                 finishTimes[j].overTheLine = finishTimes[j].overTheLine - 1
-                                finishTimes[j].displayTime = String(format: "%03d", finishTimes[j].overTheLine) + " - " +
+                                finishTimes[j].displayTime = String(format: "%03d", finishTimes[j].overTheLine) + " - \n" +
                                     formatter.string(from: finishTimes[j].time!)
                             }
                         }
@@ -2962,39 +2984,45 @@ struct ContentView: View {
     //                        })
                                 HStack {
                                 Text(finishTime.displayTime).font(Font.body.monospacedDigit())
-                                
-                                // Insert button
-                                Button(action: {
-                                    insertPlace(finishTime)
-                                }) {
-                                    Text("+")
-                                        .padding()
-                                        .foregroundColor(.black)
-                                    }
-                                    .background(Color.green)
-                                    .frame(width: 45, height: 50)
-                                    .cornerRadius(10)
-                                    .buttonStyle(PlainButtonStyle())
-                                
-                                // Remove button
-                                Button(action: {
-                                    removePlace(finishTime)
-                                }) {
-                                    Text("-")
-                                        .padding()
-                                        .foregroundColor(.black)
-                                    }
-                                    .disabled(allowPlaceDelete(finishTime))
-                                    .background(allowPlaceDelete(finishTime) ? Color.gray : Color.red)
-                                    .frame(width: 45, height: 50)
-                                    .cornerRadius(10)
-                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                if mode == EditMode.active {
+                                    // Insert button
+                                    Button(action: {
+                                        insertPlace(finishTime)
+                                    }) {
+                                        Text("+")
+                                            .padding()
+                                            .foregroundColor(.black)
+                                        }
+                                        .background(Color.green)
+                                        .frame(width: 45, height: 50)
+                                        .cornerRadius(10)
+                                        .buttonStyle(PlainButtonStyle())
+                                    
+                                    // Remove button
+                                    Button(action: {
+                                        removePlace(finishTime)
+                                    }) {
+                                        Text("-")
+                                            .padding()
+                                            .foregroundColor(.black)
+                                        }
+                                        .disabled(allowPlaceDelete(finishTime))
+                                        .background(allowPlaceDelete(finishTime) ? Color.gray : Color.red)
+                                        .frame(width: 45, height: 50)
+                                        .cornerRadius(10)
+                                        .buttonStyle(PlainButtonStyle())
+                                }
                                 }
                                 
         //                        {Text(finishTime.displayTime)}
                             }
                         }
                         .listStyle(PlainListStyle())
+                        .toolbar {
+                            EditButton()
+                        }
+                        .environment(\.editMode, $mode)
     //                    .frame(width: 180)
                          
                         Spacer()
@@ -3176,6 +3204,79 @@ struct ContentView: View {
         @State var unplacedNumb = 0
         @State var unplacedSpot = 0
         @State var unplacedSpots: [FinishTime] = []
+        @State var mode: EditMode = .inactive
+        
+        @Binding var dragEnable : Bool
+        
+        func move(from source: IndexSet, to destination: Int) {
+            // this func is proving difficult to implement
+        
+            var promotion = true
+            var targetGrade = ""
+            var sourceGrade = ""
+            var targetPlace = -1
+            var sourcePlace = -1
+        
+            // user drags a rider onto a target place in the list
+            source.forEach { (i) in
+                sourceGrade = displayStarters[i].racegrade
+                sourcePlace = Int(displayStarters[i].place) ?? -1
+                if i < destination {
+                    promotion = false
+                } else {
+                    promotion = true
+                }
+            }
+            // check if rider was DNF
+            if sourcePlace == -1 {
+                // don't move DNFed riders
+                return
+            }
+            
+            targetGrade = displayStarters[destination].racegrade
+            targetPlace = Int(displayStarters[destination].place) ?? -1
+            
+            // check if using grades
+            // check if promoting or demoting
+            if myConfig.stage {
+                // TODO
+            } else {
+                // not stage race
+                // is this a timed race
+                if raceTypes[myConfig.raceType] == "Wheel" || raceTypes[myConfig.raceType] == "Hcp"  || raceTypes[myConfig.raceType] == "TT" || raceTypes[myConfig.raceType] == "Age Std" || raceTypes[myConfig.raceType] == "Secret" || raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age" {
+                    // TODO
+                } else {
+                    // untimed race
+                    if selectedGrade == 0 {
+                        // all grades are displayed
+                        if targetGrade == sourceGrade {
+                            // set the place to the target and then shuffle the rest of the grade
+                        } else {
+                            if promotion {
+                                // set the place to the 1st in grade and then shuffle the rest of the grade
+                            } else {
+                                // set the place to the last in grade and
+                            }
+                        }
+                    } else {
+                        // only one grade is displayed
+                        for updates in arrayStarters.indices {
+                            
+                        }
+                    }
+                }
+            }
+            
+            displayStarters.move(fromOffsets: source, toOffset: destination)
+        }
+        
+        func delete(at offsets: IndexSet) {
+            offsets.forEach { (i) in
+                self.remove(racenumber: displayStarters[i].racenumber)
+                displayStarters.remove(at: i)
+            }
+            
+        }
         
         func getUnplacedSpots()  {
             if finishTimes.count > 0 {
@@ -3318,6 +3419,7 @@ struct ContentView: View {
             }
             getUnplaced(grade: self.selectedGrade)
             getUnplacedSpots()
+            riderDetails = racenumber + " unplaced"
         }
         
         func promote(racenumber: String) {
@@ -3374,7 +3476,9 @@ struct ContentView: View {
                                 arrayStarters[i-1].finishTime = arrayStarters[i].finishTime
                                 arrayStarters[i-1].overTheLine = arrayStarters[i].overTheLine
                                 arrayStarters[i-1].place = arrayStarters[i].place
-                                arrayStarters[i-1].raceTime = arrayStarters[i-1].finishTime!.timeIntervalSince(arrayStarters[i-1].startTime!)
+                                if arrayStarters[i-1].finishTime != nil && arrayStarters[i-1].startTime != nil {
+                                    arrayStarters[i-1].raceTime = arrayStarters[i-1].finishTime!.timeIntervalSince(arrayStarters[i-1].startTime!)
+                                }
                                 arrayStarters[i].place = newPlace
                                 arrayStarters[i].overTheLine = newOverTheLine
                                 arrayStarters[i].displayTime = newDisplayTime
@@ -3644,6 +3748,7 @@ struct ContentView: View {
                                 Text(displayName(rider: rider))
                                 Spacer()
                                 
+                                if mode == EditMode.active {
                                 // Promote button
                                 Button(action: {
                                     promote(racenumber: rider.racenumber)
@@ -3681,33 +3786,47 @@ struct ContentView: View {
                                     .cornerRadius(10)
                                     .buttonStyle(PlainButtonStyle())
                                 
-                                // Remove button
-                                Button(action: {
-                                    remove(racenumber: rider.racenumber)
-                                    riderDetails = rider.racenumber + " removed from placings"
-                                    sortPlaces()
-                                }) {
-                                    Image(systemName: "bin.xmark") //Text("X")
-                                        .padding()
-                                        .foregroundColor(.black)
-                                    }
-                                    .frame(width: 40, height: 50)
-                                    .background(Color.red)
-                                    .cornerRadius(10)
-                                    .buttonStyle(PlainButtonStyle())
+                                // Remove button - superceeded by edit - delete
+//                                Button(action: {
+//                                    remove(racenumber: rider.racenumber)
+//                                    riderDetails = rider.racenumber + " removed from placings"
+//                                    sortPlaces()
+//                                }) {
+//                                    Image(systemName: "bin.xmark") //Text("X")
+//                                        .padding()
+//                                        .foregroundColor(.black)
+//                                    }
+//                                    .frame(width: 40, height: 50)
+//                                    .background(Color.red)
+//                                    .cornerRadius(10)
+//                                    .buttonStyle(PlainButtonStyle())
+                                }
                             }  // end HStack
                     }
                 }
+                    //.onMove(perform: move)
+                    .onDelete(perform: delete)
                 }
                 .listStyle(PlainListStyle())
-                
+                .toolbar {
+                    EditButton()
+                }
+                .environment(\.editMode, $mode)
+                .onChange(of: mode, perform: {value in
+                    if value == .active {
+                        // in edit mode
+                        dragEnable = false
+                    } else {
+                        dragEnable = true
+                    }
+                })
 //                }
                 .onAppear(perform: {
                     initStageResults()
                     sortPlaces()
                 })
                 .frame(height: CGFloat(listHeight))
-
+                
                 HStack {
                     VStack {
                         Text(riderDetails)
@@ -3992,6 +4111,40 @@ struct ContentView: View {
             .navigationBarTitle("Places", displayMode: .inline)
         }
     }
+    
+    struct TestView: View  {
+        @State var displayStarters = ["x","y","z"]
+        
+        func move(from source: IndexSet, to destination: Int) {
+            // do stuff
+            displayStarters.move(fromOffsets: source, toOffset: destination)
+        }
+        
+        func delete(at offsets: IndexSet) {
+            offsets.forEach { (i) in
+               displayStarters.remove(at: i)
+            }
+        }
+        
+        var body: some View {
+            NavigationView {
+                List { ForEach(displayStarters , id: \.self) { rider in   //
+                        Text(rider)
+                    }
+                    .onMove(perform: move)
+                    .onDelete(perform: delete)
+                }
+                .listStyle(PlainListStyle())
+                
+                .frame(width: CGFloat(300), height: CGFloat(300)  )
+            }
+            .toolbar {
+                EditButton()
+            }
+            .navigationBarTitle("Test", displayMode: .inline)
+        }
+    }
+
     
     struct StagesView: View {
         @State private var selectedGrade = 0
@@ -4727,6 +4880,20 @@ struct ContentView: View {
             ScrollView {
             VStack(alignment: .leading) {
                 Group{
+//                HStack {
+//                    Button(action: {
+//                        withAnimation {
+//                            selectedView = "Test"
+//                            showMenu = false
+//                        }
+//                    }) {
+//
+//                    Text("Test")
+//                        .foregroundColor(.black)
+//                        .font(.headline)
+//                    }
+//                }
+//                .padding(.top, 20)
                 HStack {
                     Button(action: {
                         withAnimation {
@@ -4997,6 +5164,12 @@ struct ContentView: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 switch selectedView {
+                case "Test":
+                    TestView()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: self.showMenu ? geometry.size.width/2 : 0)
+                    .disabled(self.showMenu ? true : false)
+                    .gesture(drag)
                 case "Settings":
                     SettingsView()
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -5052,11 +5225,11 @@ struct ContentView: View {
                     .disabled(self.showMenu ? true : false)
                     .gesture(drag)
                 case "Places":
-                    PlacesView()
+                    PlacesView(dragEnable: $dragEnable)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(x: self.showMenu ? geometry.size.width/2 : 0)
                     .disabled(self.showMenu ? true : false)
-                    .gesture(drag)
+//                    .gesture(dragEnable ? drag : nil)
                 case "Stages":
                     StagesView()
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -5083,7 +5256,7 @@ struct ContentView: View {
                     .transition(.move(edge: .leading))
                 }
             }  // on zstack
-            .gesture(drag)
+            .gesture(dragEnable ? drag : nil)
         }
         .navigationBarTitle("SORS", displayMode: .inline)
         .navigationBarItems(leading: (
