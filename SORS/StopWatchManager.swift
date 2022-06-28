@@ -143,7 +143,7 @@ class StopWatchManager: ObservableObject {
                     self.stopTimer()
                 }
                     
-            } else if raceTypes[myConfig.raceType] == "Hcp" {
+            } else if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Wheel"{
                 if self.sortedHandicaps.count > 0 {
                     // if time has passed for grade start, remove it from the list
                     if Int(self.counter) >= self.sortedHandicaps[0].time {
@@ -183,11 +183,6 @@ class StopWatchManager: ObservableObject {
                     AudioServicesPlaySystemSound (self.goSoundID)
                     self.stopTimer()
                 }
-            } else if raceTypes[myConfig.raceType] == "Wheel"  {
-                // stop the timer as race is not timed for Wheel or all grades are started
-                AudioServicesPlaySystemSound (self.goSoundID)
-                self.nextStart = ""
-                self.stopTimer()
             }
         }
             

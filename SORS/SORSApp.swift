@@ -94,7 +94,9 @@ struct SORSApp: App {
     }
     
     var body: some Scene {
+        
         WindowGroup {
+            
             ContentView()
         }
     }

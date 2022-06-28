@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 // CLASSES
 
@@ -118,6 +119,7 @@ let grades = ["A","B","C","D","E","F","G"]
 let subgrades = ["","1","2"]
 let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  1st 2 used for stage races
 let unknownGrade = 999
+let buttonSound = 1057
 
 let bonusTypes = ["Sprint","Prime"]    // bonus to be applied to a stage type
 
@@ -919,7 +921,7 @@ struct ContentView: View {
                     
                     // set up for test run - TODO disable this in production
 //                    myConfig.raceType = 4 // 4 = Age
-                    handicaps = [Handicap(racegrade: "G", time: 0),Handicap(racegrade: "F", time: 10),Handicap(racegrade: "E", time: 20),Handicap(racegrade: "D", time: 30),Handicap(racegrade: "C", time: 40),Handicap(racegrade: "B", time: 50),Handicap(racegrade: "A", time: 60)]
+//                    handicaps = [Handicap(racegrade: "G", time: 0),Handicap(racegrade: "F", time: 10),Handicap(racegrade: "E", time: 20),Handicap(racegrade: "D", time: 30),Handicap(racegrade: "C", time: 40),Handicap(racegrade: "B", time: 50),Handicap(racegrade: "A", time: 60)]
 //                    if raceTypes[myConfig.raceType] == "Age" {
 //                        arrayStarters = [Rider(id: "1", racenumber: "4", name: "Fred", givenName: "", surname: "", gender: "M", dateofbirth: "", age: 33, racegrade: "M1", place: "", finishTime: 0.0, displayTime: "", overTheLine: "", corider: ""), Rider(id: "2", racenumber: "40", name: "Max", givenName: "", surname: "", gender: "M", dateofbirth: "", age: 43, racegrade: "M3", place: "", finishTime: 0.0, displayTime: "", overTheLine: "", corider: ""), Rider(id: "3", racenumber: "402", name: "June", givenName: "", surname: "", gender: "F", dateofbirth: "", age: 73, racegrade: "F9", place: "", finishTime: 0.0, displayTime: "", overTheLine: "", corider: "")
 //                             , Rider(id: "4", racenumber: "567", name: "Geo", givenName: "", surname: "", gender: "F", dateofbirth: "", age: 34, racegrade: "REFEREE", place: "", finishTime: 0.0, displayTime: "", overTheLine: "", corider: "")
@@ -1072,7 +1074,7 @@ struct ContentView: View {
                                     myConfig.raceDate = "No race dates loaded"
                                 }
                             }), label : Text("")){
-                        ForEach(0 ..< arrayRaces.count) {
+                        ForEach(0 ..< arrayRaces.count, id:\.self) {
                             Text(arrayRaces[$0]["displaydate"] as! String)
                         }
                     }
@@ -1126,7 +1128,7 @@ struct ContentView: View {
                                     }
                                 }),
                                 label : Text("")){
-                            ForEach(0 ..< numbStages) {
+                            ForEach(0 ..< numbStages, id:\.self) {
                                 Text(String($0 + 1))
                             }
                         }
@@ -1142,7 +1144,7 @@ struct ContentView: View {
                                 myConfig.stages = self.stages
                             }),
                             label : Text("")){
-                            ForEach(0 ..< raceTypes.count) {
+                            ForEach(0 ..< raceTypes.count, id:\.self) {
                                 // for stage races only have crit, graded and TT
                                 if !myConfig.stage || $0 < 2 {
                                     Text(raceTypes[$0])
@@ -1173,7 +1175,7 @@ struct ContentView: View {
                                     myConfig.raceType = $0
                                 }),
                                 label : Text("")){
-                            ForEach(0 ..< raceTypes.count) {
+                            ForEach(0 ..< raceTypes.count, id:\.self) {
                                 Text(raceTypes[$0])
                             }
                         }
@@ -1578,7 +1580,7 @@ struct ContentView: View {
         var body: some View {
             VStack {
                 Picker("Director", selection: $selectedDirector) {
-                    ForEach(0 ..< arrayNames.count) {
+                    ForEach(0 ..< arrayNames.count, id:\.self) {
                        Text(arrayNames[$0])
                     }
                 }
@@ -1694,7 +1696,7 @@ struct ContentView: View {
         var body: some View {
             VStack {
                 Picker("Marshal", selection: $selectedMarshal) {
-                    ForEach(0 ..< arrayNames.count) {
+                    ForEach(0 ..< arrayNames.count, id:\.self) {
                        Text(arrayNames[$0])
                     }
                 }
@@ -1793,6 +1795,7 @@ struct ContentView: View {
         @ObservedObject var sec = Time(limit: 2)
         @ObservedObject var min = Time(limit: 2)
         @State var HCmsg = ""
+        @State var mode: EditMode = .inactive
         
         @State var listHeight: Double = handicapsListHeight
 
@@ -1817,7 +1820,12 @@ struct ContentView: View {
             }
         }
         
-        
+        func delete(at offsets: IndexSet) {
+            offsets.forEach { (i) in
+                self.deleteHandicap(racegrade: displayHandicaps[i].racegrade)
+                displayHandicaps.remove(at: i)
+            }
+        }
 
         func deleteHandicap(racegrade: String) {
             var pointer = 0
@@ -1854,25 +1862,32 @@ struct ContentView: View {
                         HStack{
                             Text(handicap.racegrade + " - " + secAsTime(handicap.time))
                             Spacer()
-                            Button(action: {
-                                deleteHandicap(racegrade: handicap.racegrade)
-                            }) {
-                                Text("Remove")
-                                    .padding()
-                                    .foregroundColor(.black)
-                                }
-                                .frame(width: 100, height: 50, alignment: .leading)
-                                .background(Color.yellow)
-                                .cornerRadius(10)
-                                .buttonStyle(PlainButtonStyle())
+                            if mode == EditMode.active {
+                                Button(action: {
+                                    deleteHandicap(racegrade: handicap.racegrade)
+                                }) {
+                                    Text("Remove")
+                                        .padding()
+                                        .foregroundColor(.black)
+                                    }
+                                    .frame(width: 100, height: 50, alignment: .leading)
+                                    .background(Color.yellow)
+                                    .cornerRadius(10)
+                                    .buttonStyle(PlainButtonStyle())
+                            }
                         }
                         }
                     }
                     .listStyle(PlainListStyle())
+                    .toolbar {
+                        EditButton()
+                    }
+                    .environment(\.editMode, $mode)
+                    
                     HStack {
                         Text("Grade:")
                         Picker(selection: $selectedGrade, label : Text("")){
-                            ForEach(0 ..< grades.count) {
+                            ForEach(0 ..< grades.count, id:\.self) {
                                 //Spacer()
                                 Text(grades[$0])
                                     //.font(Font.system(size: 60, design: .default))
@@ -1884,7 +1899,7 @@ struct ContentView: View {
                         if raceTypes[myConfig.raceType] != "Crit" {
                             Text("Sub:")
                             Picker(selection: $selectedSubGrade, label : Text("")){
-                                ForEach(0 ..< subgrades.count) {
+                                ForEach(0 ..< subgrades.count, id:\.self) {
                                     //Spacer()
                                     Text(subgrades[$0])
                                         //.font(Font.system(size: 60, design: .default))
@@ -2140,7 +2155,7 @@ struct ContentView: View {
                         } else {
                             Text("Grade")
                             Picker(selection: $selectedGrade, label : Text("")){
-                                ForEach(0 ..< grades.count) {
+                                ForEach(0 ..< grades.count, id:\.self) {
                                     //Spacer()
                                     Text(grades[$0])
                                         //.font(Font.system(size: 60, design: .default))
@@ -2151,7 +2166,7 @@ struct ContentView: View {
                             if raceTypes[myConfig.raceType] != "Crit" {
                                 // Add picker for subgrade 1,2
                                 Picker(selection: $selectedSubGrade, label : Text("")){
-                                    ForEach(0 ..< subgrades.count) {
+                                    ForEach(0 ..< subgrades.count, id:\.self) {
                                         //Spacer()
                                         Text(subgrades[$0])
                                             //.font(Font.system(size: 60, design: .default))
@@ -2316,7 +2331,7 @@ struct ContentView: View {
                         Text("Grade")
                             .padding(.top, 50)
                         Picker(selection: $selectedGrade, label : Text("")){
-                            ForEach(0 ..< grades.count) {
+                            ForEach(0 ..< grades.count, id:\.self) {
                                 //Spacer()
                                 Text(grades[$0])
                                 //.font(Font.system(size: 60, design: .default))
@@ -2328,7 +2343,7 @@ struct ContentView: View {
                         if raceTypes[myConfig.raceType] != "Crit" {
                             // Add picker for subgrade 1,2
                             Picker(selection: $selectedSubGrade, label : Text("")){
-                                ForEach(0 ..< subgrades.count) {
+                                ForEach(0 ..< subgrades.count, id:\.self) {
                                     //Spacer()
                                     Text(subgrades[$0])
                                         //.font(Font.system(size: 60, design: .default))
@@ -2364,7 +2379,7 @@ struct ContentView: View {
                     HStack {
                         Text("Gender")
                         Picker(selection: $selectedGender, label : Text("")){
-                            ForEach(0 ..< genders.count) {
+                            ForEach(0 ..< genders.count, id:\.self) {
                                 Text(genders[$0])
                             }
                         }
@@ -2561,7 +2576,7 @@ struct ContentView: View {
                         set: {self.selectedGrade = $0
                             setStarts()
                         }), label : Text("")){
-                    ForEach(0 ..< startingGrades.count) {
+                    ForEach(0 ..< startingGrades.count, id:\.self) {
                         //Spacer()
                         Text(startingGrades[$0])
                             //.font(Font.system(size: 60, design: .default))
@@ -2773,7 +2788,7 @@ struct ContentView: View {
                         if unstartedGrades.count > 0 {
                         // select grade to start
                         Picker(selection: $selectedStartGrade, label : Text("")){
-                            ForEach(0 ..< unstartedGrades.count) {
+                            ForEach(0 ..< unstartedGrades.count, id:\.self) {
                                 Text(unstartedGrades[$0])
                             }
                         }
@@ -2823,7 +2838,8 @@ struct ContentView: View {
                     if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled {
                     // Start button
                     Button(action: {
-                        TimingMsg = "Started."
+                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
+                        TimingMsg = "Race Started"
                         if !running {
                             running = true
                             self.stopWatchManager.storeStartTime()
@@ -2875,7 +2891,7 @@ struct ContentView: View {
                         case "Wheel":
                             startDisabled = true
                             recordDisabled = true  // not timed
-                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
+//                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
     //                        stopDisabled = false   // timer stops after all grades are started
                         case "Age Std", "TT":
                             startDisabled = true
@@ -2903,6 +2919,7 @@ struct ContentView: View {
                         Text(" ") // push button away from LHS of screen
                         // Record button
                         Button(action: {
+                            AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                             overTheLine = finishTimes.count + 1
                             getUnplaced()
                             TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
@@ -3214,7 +3231,7 @@ struct ContentView: View {
             var promotion = true
             var targetGrade = ""
             var sourceGrade = ""
-            var targetPlace = -1
+//            var targetPlace = -1
             var sourcePlace = -1
         
             // user drags a rider onto a target place in the list
@@ -3234,7 +3251,7 @@ struct ContentView: View {
             }
             
             targetGrade = displayStarters[destination].racegrade
-            targetPlace = Int(displayStarters[destination].place) ?? -1
+//            targetPlace = Int(displayStarters[destination].place) ?? -1
             
             // check if using grades
             // check if promoting or demoting
@@ -3260,9 +3277,9 @@ struct ContentView: View {
                         }
                     } else {
                         // only one grade is displayed
-                        for updates in arrayStarters.indices {
-                            
-                        }
+//                        for updates in arrayStarters.indices {
+//
+//                        }
                     }
                 }
             }
@@ -3834,7 +3851,7 @@ struct ContentView: View {
                             if raceTypes[myConfig.raceType] != "Crit" && raceTypes[myConfig.raceType] != "Wheel" {
                                 // show the over the line places and times recorded in the Timer
                                 Picker(selection: $unplacedSpot, label : Text("000")) {
-                                    ForEach(0 ..< unplacedSpots.count) {
+                                    ForEach(0 ..< unplacedSpots.count, id:\.self) {
                                         Text(unplacedSpots[$0].displayTime)
                                     }
                                 }
@@ -3851,7 +3868,7 @@ struct ContentView: View {
                                             // only display placed list for that grade
                                         }), label : Text("")){
                                     
-                                    ForEach(-1 ..< startingGrades.count) {
+                                    ForEach(-1 ..< startingGrades.count, id:\.self) {
                                         if $0 == -1 {
                                             Text("All")
                                         } else {
@@ -3865,7 +3882,7 @@ struct ContentView: View {
                             }
                             
                             Picker("Rider", selection: $unplacedNumb) {
-                                ForEach(0 ..< unplacedRiders.count) {
+                                ForEach(0 ..< unplacedRiders.count, id:\.self) {
                                    Text(unplacedRiders[$0])
                                 }
                             }
@@ -3880,6 +3897,7 @@ struct ContentView: View {
                         
                     // Place Button
                     Button(action: {
+                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                         if myConfig.stage {
                             // get the finishTime
                             // TODO needs to be updated as per below
@@ -4068,6 +4086,7 @@ struct ContentView: View {
                         
                     // DNF button
                     Button(action: {
+                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                         // find the rider in arrayStarters and set place to dnf
                         for index in arrayStarters.indices {
                             if unplacedRiders[unplacedNumb] == String(arrayStarters[index].racenumber) {
@@ -4205,7 +4224,7 @@ struct ContentView: View {
                                     reset = true
                                 }),
                                 label : Text("")){
-                            ForEach(0 ..< myConfig.stages.count) {
+                            ForEach(0 ..< myConfig.stages.count, id:\.self) {
                                 Text(String($0 + 1))
                             }
                         }
@@ -4221,7 +4240,7 @@ struct ContentView: View {
                                     filterBonuses()
                                 }), label : Text("")){
 
-                            ForEach(0 ..< startingGrades.count) {
+                            ForEach(0 ..< startingGrades.count, id:\.self) {
                                 Text(startingGrades[$0])
                             }
                         }
@@ -4267,7 +4286,7 @@ struct ContentView: View {
                                         self.selectedPrime = -1
                                     }
                                 }), label : Text("")){
-                                    ForEach(0 ..< bonusTypes.count) {
+                                    ForEach(0 ..< bonusTypes.count, id:\.self) {
                                     Text(bonusTypes[$0])
                                 }
                             }
@@ -4276,7 +4295,7 @@ struct ContentView: View {
                             
                             if bonusType == 1 && myConfig.stages[self.selectedStage].numbPrimes  > 0 {
                                 Picker("Prime", selection: $selectedPrime) {
-                                    ForEach(1 ..< myConfig.stages[self.selectedStage].numbPrimes + 1) {
+                                    ForEach(1 ..< myConfig.stages[self.selectedStage].numbPrimes + 1, id:\.self) {
                                         Text(String($0))
                                     }
                                 }
@@ -4286,7 +4305,7 @@ struct ContentView: View {
                             }
                             
                             Picker("Rider", selection: $bonusRiderNumb) {
-                                ForEach(0 ..< riderList.count) {
+                                ForEach(0 ..< riderList.count, id:\.self) {
                                     Text(riderList[$0])
                                 }
                             }
@@ -4501,7 +4520,7 @@ struct ContentView: View {
                     if rider.overTheLine == "DNF" {
                         return rider.overTheLine + " = " + rider.racenumber + " - " + rider.name
                     }
-                    return rider.overTheLine + " = " + rider.racenumber + " - " + rider.name
+                    return rider.overTheLine + " @ " + " (" + handicapForGrade(grade: rider.racegrade) + ") " + " = " + rider.racenumber + " - " + rider.name
                 case "Secret":
                     if rider.place == "DNF" {
                         return rider.place  + " = " + rider.racenumber + " - " + rider.name
@@ -4551,7 +4570,7 @@ struct ContentView: View {
                         givenName = ""
                         displayTime = ""
                         // allocate points
-                        if starter.place == "" {
+                        if starter.place == "" && starter.overTheLine == "" {
                             outputPlace = ""
                             points = ""
                             if starter.racegrade == directorGrade {
@@ -4574,7 +4593,9 @@ struct ContentView: View {
                             points = "0"
                             surname = starter.surname
                             givenName = starter.givenName
-                            if raceTypes[myConfig.raceType] == "Wheel" || raceTypes[myConfig.raceType] == "Hcp" {
+                            if raceTypes[myConfig.raceType] == "Wheel" {
+                                displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
+                            } else if raceTypes[myConfig.raceType] == "Hcp" {
                                 displayTime = starter.displayTime + " (" + handicapForGrade(grade: starter.racegrade) + ")"
                             } else if myConfig.stage || raceTypes[myConfig.raceType] == "Graded" {
                                 displayTime = doubleAsTime(starter.raceTime)
@@ -4587,7 +4608,10 @@ struct ContentView: View {
                         } else {
                             // point allocation is based on number of riders in a grade
                             var raceType = raceTypes[myConfig.raceType]
-                            if myConfig.stage {raceType = "Graded"}
+                            if myConfig.stage {
+                                // user graded style point allocations for stages
+                                raceType = "Graded"
+                            }
                             switch raceType {
                             case "Graded", "Crit":
                                 // 6 or more starters 10, 8, 6, 4, 3, 2, 2 ...
@@ -4630,6 +4654,45 @@ struct ContentView: View {
                                         points = arrayPoints[(Int(starter.place) ?? 0) - 1]
                                     }
                                 }
+                            case "TT":
+                                // 6 or more starters 10, 8, 6, 4, 3, 2, 2 ...
+                                // 5 starters 8, 6, 4, 3, 2
+                                // 4 starters 6, 4, 3, 2
+                                // 3 starters 4, 3, 2
+                                // 2 starters 3, 2
+                                // 1 starter 2
+                                outputPlace = starter.place
+                                var cntr = 0
+                                for countStarter in displayStarters {
+                                    if countStarter.racegrade == starter.racegrade {
+                                        cntr = cntr + 1
+                                    }
+                                }
+                                switch cntr {
+                                case 1:
+                                    points = "2"
+                                case 2:
+                                    let arrayPoints = ["3","2"]
+                                    points = arrayPoints[(Int(starter.place) ?? 0) - 1]
+                                case 3:
+                                    let arrayPoints = ["4","3","2"]
+                                    points = arrayPoints[(Int(starter.place) ?? 0) - 1]
+                                case 4:
+                                    let arrayPoints = ["6","4","3","2"]
+                                    points = arrayPoints[(Int(starter.place) ?? 0) - 1]
+                                case 5:
+                                    let arrayPoints = ["8","6","4","3","2"]
+                                    points = arrayPoints[(Int(starter.place) ?? 0) - 1]
+                                default:
+                                    // 6 or more
+                                    if (Int(starter.place) ?? 0) > 5 {
+                                        points = "2"
+                                    } else {
+                                        let arrayPoints = ["10","8","6","4","3"]
+                                        points = arrayPoints[(Int(starter.place) ?? 0) - 1]
+                                    }
+                                }
+                                displayTime = doubleAsTime(starter.raceTime)
                             case "Age Std":
                                 // 6 or more starters 10, 8, 6, 4, 3, 2, 2 ...
                                 // 5 starters 8, 6, 4, 3, 2
@@ -4669,11 +4732,11 @@ struct ContentView: View {
                                     }
                                 }
                                 displayTime = doubleAsTime(starter.raceTime) + "(" + doubleAsTime(starter.raceTime - getStd(age: starter.age, dist: myConfig.TTDist, gender: starter.gender)) + ")"
-                            case "Wheel", "Hcp", "Secret", "TT":
+                            case "Wheel", "Hcp", "Secret":
                                 // 20, 15, 12, 10, 8, 7, 6, 5, 4, 3, 2, 2 ...
                                 var switcher = ""
                                 outputPlace = starter.place
-                                if raceTypes[myConfig.raceType]  == "Secret" || raceTypes[myConfig.raceType]  == "TT"  {
+                                if raceTypes[myConfig.raceType]  == "Secret" {
                                     switcher = starter.place
                                 } else {
                                     // "Wheel", "Hcp"
@@ -4703,7 +4766,11 @@ struct ContentView: View {
                                 default:
                                     points = "2"
                                 }
-                                displayTime = doubleAsTime(starter.raceTime) + " (" + handicapForGrade(grade: starter.racegrade) + ")"
+                                if raceTypes[myConfig.raceType]  == "Wheel"  {
+                                    displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
+                                } else {
+                                    displayTime = doubleAsTime(starter.raceTime) + " (" + handicapForGrade(grade: starter.racegrade) + ")"
+                                }
                             default:  // Age
                                 // no points as this is an age based race
                                 displayTime = doubleAsTime(starter.raceTime)
