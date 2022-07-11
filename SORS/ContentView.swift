@@ -310,11 +310,11 @@ func officalCount() -> Int {
     return count
 }
 
-func getUnplaced(grade: Int = 0)  {
+func getUnplaced(grade: Int = -1)  {
     // gets the started riders who are yet to be placed in the results
     unplacedRiders = []
     for rider in arrayStarters.indices {
-        if grade < 1 {
+        if grade < 0 {
             // All grades
             if myConfig.stage {
                 if arrayStarters[rider].stageResults[myConfig.currentStage].place == "" && arrayStarters[rider].stageResults[myConfig.currentStage].overTheLine == "" &&
@@ -346,10 +346,9 @@ func getUnplaced(grade: Int = 0)  {
             }
         } else if startingGrades.count > 0 {
             // selected Grade
-            // need to offset the grade as "All" is in position 0 in the selector
             if myConfig.stage {
                 if arrayStarters[rider].stageResults[myConfig.currentStage].place == "" &&
-                    arrayStarters[rider].racegrade == startingGrades[grade-1] {
+                    arrayStarters[rider].racegrade == startingGrades[grade] {
                         // Check that the rider has a start time
                         if (raceTypes[myConfig.raceType] == "TT" || raceTypes[myConfig.raceType] == "Age Std") {
                             if arrayStarters[rider].stageResults[myConfig.currentStage].startTime != nil {
@@ -362,7 +361,7 @@ func getUnplaced(grade: Int = 0)  {
             } else {
                 // not a stage race
                 if arrayStarters[rider].place == "" &&
-                    arrayStarters[rider].racegrade == startingGrades[grade-1] {
+                    arrayStarters[rider].racegrade == startingGrades[grade] {
                     // Check that the rider has a start time
                         if (raceTypes[myConfig.raceType] == "TT" || raceTypes[myConfig.raceType] == "Age Std") {
                              if arrayStarters[rider].startTime != nil {
@@ -2858,6 +2857,7 @@ struct ContentView: View {
                                     newStart.startTime = Date()
                                     startedGrades.append(newStart)
                                     unstartedGrades.remove(at: grade)
+                                    selectedStartGrade = 0
                                     break
                                 }
                             }
@@ -2921,7 +2921,7 @@ struct ContentView: View {
                         Button(action: {
                             AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                             overTheLine = finishTimes.count + 1
-                            getUnplaced()
+                            getUnplaced(grade: -1)
                             TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
                             // record a finish time
                             newTime.id = UUID()
@@ -3758,7 +3758,7 @@ struct ContentView: View {
                     List { ForEach(displayStarters , id: \.racenumber) { rider in   //
                         if (!myConfig.stage && (rider.place != "" || rider.overTheLine != "")  &&
                             // show all riders for non crits  or Either show all riders or restrict by grade
-                            ((raceTypes[myConfig.raceType] != "Crit") || (self.selectedGrade == 0 || (self.selectedGrade != 0 && startingGrades[self.selectedGrade - 1] == rider.racegrade)) )
+                            ((raceTypes[myConfig.raceType] != "Crit") || (self.selectedGrade == -1 || (self.selectedGrade != -1 && startingGrades[self.selectedGrade] == rider.racegrade)) )
                             ) ||
                             (myConfig.stage && (rider.stageResults[myConfig.currentStage].place != "" || rider.stageResults[myConfig.currentStage].overTheLine != ""))  {
                             HStack{
@@ -3897,10 +3897,10 @@ struct ContentView: View {
                         
                     // Place Button
                     Button(action: {
-                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
+                        
                         if myConfig.stage {
+                            AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                             // get the finishTime
-                            // TODO needs to be updated as per below
                             var t: FinishTime = FinishTime()
                             
                             let x = unplacedSpot
@@ -4042,7 +4042,7 @@ struct ContentView: View {
                                     } else if raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age" {
                                         // set places in Results
                                         arrayStarters[index].place = nextPlace(grade: arrayStarters[index].racegrade)
-                                        riderDetails = arrayStarters[index].place
+                                        riderDetails = arrayStarters[index].racegrade + " " + arrayStarters[index].place
                                         for grade in startedGrades {
                                             if arrayStarters[index].racegrade == grade.racegrade {
                                                 arrayStarters[index].startTime = grade.startTime!
@@ -4086,7 +4086,6 @@ struct ContentView: View {
                         
                     // DNF button
                     Button(action: {
-                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                         // find the rider in arrayStarters and set place to dnf
                         for index in arrayStarters.indices {
                             if unplacedRiders[unplacedNumb] == String(arrayStarters[index].racenumber) {
