@@ -2049,6 +2049,12 @@ struct ContentView: View {
                                 if raceNumb.value == arrayStarters[i].racenumber {
                                     riderDetails = raceNumb.value + " is already entered in " + arrayStarters[i].racegrade
                                     regradeDisabled = false
+                                    registerDisabled = true
+                                    // check if the rider has been placed
+                                    if arrayStarters[i].place != "" || arrayStarters[i].overTheLine != ""  {
+                                        riderDetails = riderDetails + "\nRider must be unplaced before regrading"
+                                        regradeDisabled = true
+                                    }
                                     starterId = i
                                     return
                                 }
@@ -2251,31 +2257,36 @@ struct ContentView: View {
                     
                     if raceTypes[myConfig.raceType] != "Age" && raceTypes[myConfig.raceType] != "Age Std" && !myConfig.championship {
                     // Regrade button
-                    Button(action: {
-                        if arrayStarters[starterId].racegrade == grades[selectedGrade] + subgrades[selectedSubGrade] {
-                            riderDetails = "Rider already in " + grades[selectedGrade]
-                            return
-                        }
-                        // set the race grade
-                        if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Wheel" {
-                            arrayStarters[starterId].racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
-                        } else {
-                            arrayStarters[starterId].racegrade = grades[selectedGrade]
-                        }
-                        
-                        setStartingGrades()
-                        checkHandicaps()
-                        riderDetails = "Regraded to " + grades[selectedGrade] + subgrades[selectedSubGrade]
-                        regradeDisabled = true
-                    }) {
-                        Text("Regrade")
-                            .padding()
-                            .foregroundColor(.black)
-                        }
-                        .disabled(regradeDisabled)
-                        .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: 50, alignment: .leading)
-                        .background(regradeDisabled ? Color.gray : Color.green)
-                        .cornerRadius(10)
+                        Button(action: {
+                            // check if the rider has been placed
+                            if arrayStarters[starterId].place != "" || arrayStarters[starterId].overTheLine != ""  {
+                                riderDetails = "Rider must be unplaced before regrading"
+                                return
+                            }
+                            if arrayStarters[starterId].racegrade == grades[selectedGrade] + subgrades[selectedSubGrade] {
+                                riderDetails = "Rider already in " + grades[selectedGrade]
+                                return
+                            }
+                            // set the race grade
+                            if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Wheel" {
+                                arrayStarters[starterId].racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            } else {
+                                arrayStarters[starterId].racegrade = grades[selectedGrade]
+                            }
+                            
+                            setStartingGrades()
+                            checkHandicaps()
+                            riderDetails = "Regraded to " + grades[selectedGrade] + subgrades[selectedSubGrade]
+                            regradeDisabled = true
+                        }) {
+                            Text("Regrade")
+                                .padding()
+                                .foregroundColor(.black)
+                            }
+                            .disabled(regradeDisabled)
+                            .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: 50, alignment: .leading)
+                            .background(regradeDisabled ? Color.gray : Color.green)
+                            .cornerRadius(10)
                     }
                     }
                 }
