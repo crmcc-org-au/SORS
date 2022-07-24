@@ -55,6 +55,7 @@ struct Rider: Codable {
     var age = 0
 //    var corider = ""  // racenumber of the co-rider on a tandem
     var racegrade: String = ""
+    var subgrade: String = ""
     var place: String = ""
     var ttOffset: Double = 0.0 // offset from 1st start time for a TT start
     var startTime: Date? = nil //Double = 0.0  // start time for TTs and Graded
@@ -116,7 +117,7 @@ let directorGrade = "REFEREE"
 let marshalGrade = "MARSHAL"
 let genders = ["M","F"]
 let grades = ["A","B","C","D","E","F","G"]
-let subgrades = ["","1","2"]
+let subgrades = ["-","1","2"]  // set no subgrade to '-' so options are visible in the picker
 let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  1st 2 used for stage races
 let unknownGrade = 999
 let buttonSound = 1057
@@ -137,6 +138,9 @@ let handicapsListHeight = 560.0
 let keypadHeight = 240.0
 let listPad = CGFloat(15.0)
 var msg = "---"                    // displayed on the main navigation page
+
+let dateformatter = DateFormatter()
+
 
 var reset = false                  // reset for next race/stage
 //var stopDisabled = true
@@ -899,6 +903,7 @@ struct ContentView: View {
                     raceStarted = false
                     recordDisabled = true
                     resetRiders()
+                    handicaps = []
                     
                     // Reset everything for testing
 //                    myConfig.raceType = 0
@@ -1056,6 +1061,29 @@ struct ContentView: View {
                 type = self.stages[selectedStage].type
             }
             return type
+        }
+        
+        private func raceGradeOK(raceGrade: String) -> Bool {
+            // Check the race grade is valid.  ie could be TBA or suspended
+            var gradeFound = false
+            for grade in grades {
+                for subgrade in subgrades {
+                    if subgrade != "-" {
+                        // subgrade '-' is nul subgrade
+                        if raceGrade == grade + subgrade {
+                            gradeFound = true
+                            break
+                        }
+                    } else {
+                        if raceGrade == grade {
+                            gradeFound = true
+                            break
+                        }
+                    }
+                }
+                if gradeFound { break }
+            }
+            return gradeFound
         }
         
         
@@ -1284,20 +1312,10 @@ struct ContentView: View {
                                             }
                                             newRider.racegrade = newRider.gender + "\(ageClass)"
                                         } else {
-                                            // Check the race grade is valid.  ie could be TBA or suspended
-                                            var gradeFound = false
-                                            for grade in grades {
-                                                for subgrade in subgrades {
-                                                    if (pre["grade"] as! String) == grade + subgrade {
-                                                        gradeFound = true
-                                                        break
-                                                    }
-                                                }
-                                                if gradeFound { break }
-                                            }
                                             // set the race grade
-                                            if gradeFound {
+                                            if raceGradeOK(raceGrade: pre["grade"] as! String) {
                                                 newRider.racegrade = pre["grade"] as! String
+                                                newRider.subgrade = String(pre["subgrade"] as! Int)
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
                                             }
@@ -1346,10 +1364,11 @@ struct ContentView: View {
                         writeRiders(riders: data)
                         let JSON = try! JSONSerialization.jsonObject(with: data, options: [])
                         arrayRiders = JSON as! [[String: Any]]
+                        result = String(arrayRiders.count) + " riders loaded. "
+                        
                         arrayStarters = []
                         // clear persisted starters
                         defaults.set([], forKey: "Starters")
-                        result = String(arrayRiders.count) + " riders loaded. "
                         
                         if arrayRaces.count > 0 {
                             let raceid = arrayRaces[selectedRace]["id"] as! String
@@ -1464,20 +1483,10 @@ struct ContentView: View {
                                             }
                                             newRider.racegrade = newRider.gender + "\(ageClass)"
                                         } else {
-                                            // Check the race grade is valid.  ie could be TBA or suspended
-                                            var gradeFound = false
-                                            for grade in grades {
-                                                for subgrade in subgrades {
-                                                    if (pre["grade"] as! String) == grade + subgrade {
-                                                        gradeFound = true
-                                                        break
-                                                    }
-                                                }
-                                                if gradeFound { break }
-                                            }
                                             // set the race grade
-                                            if gradeFound {
+                                            if raceGradeOK(raceGrade: pre["grade"] as! String) {
                                                 newRider.racegrade = pre["grade"] as! String
+                                                newRider.subgrade = String(pre["subgrade"] as! Int)
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
                                             }
@@ -1846,6 +1855,29 @@ struct ContentView: View {
             displayHandicaps = handicaps
         }
         
+        func adjustGrades() {
+            // check the handicaps and if subgrades are use, split the grade, else recombine.
+            for item in handicaps {
+                if item.racegrade.count == 1 {
+                    // no subgrades
+                    for rider in arrayStarters.indices {
+                        if arrayStarters[rider].racegrade.prefix(1) == item.racegrade {
+                            arrayStarters[rider].racegrade = item.racegrade
+                        }
+                    }
+                } else {
+                    // grade uses subgrades
+                    for rider in arrayStarters.indices {
+                        if arrayStarters[rider].racegrade.prefix(1) == item.racegrade.prefix(1) {
+                            arrayStarters[rider].racegrade = item.racegrade.prefix(1) + arrayStarters[rider].subgrade
+                        }
+                    }
+                    
+                }
+            }
+            setStartingGrades()
+        }
+        
         private func endEditing() {
             UIApplication.shared.endEditing()
         }
@@ -1897,11 +1929,11 @@ struct ContentView: View {
                         // Add picker for subgrade 1,2
                         if raceTypes[myConfig.raceType] != "Crit" {
                             Text("Sub:")
-                            Picker(selection: $selectedSubGrade, label : Text("")){
+                            Picker(selection: $selectedSubGrade, label : Text("-")){
                                 ForEach(0 ..< subgrades.count, id:\.self) {
                                     //Spacer()
                                     Text(subgrades[$0])
-                                        //.font(Font.system(size: 60, design: .default))
+                                    //.font(Font.system(size: 60, design: .default))
                                 }
                             }
                             .frame(width: 40)
@@ -1926,14 +1958,20 @@ struct ContentView: View {
                             // set handicap time for grade
                             // check the handicap hasn't already been set
                             for item in handicaps {
-                                if item.racegrade == grades[selectedGrade] + subgrades[selectedSubGrade] {
-                                    HCmsg = "Handicap is already set for " + grades[selectedGrade] + subgrades[selectedSubGrade]
+                                var testgrade = ""
+                                if subgrades[selectedSubGrade] == "-" {
+                                    testgrade = grades[selectedGrade]
+                                } else {
+                                    testgrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                                }
+                                if item.racegrade == testgrade {
+                                    HCmsg = "Handicap is already set for " + testgrade
                                     return
                                 }
                                 // check subgrades and grade are not being used at the same time
                                 if item.racegrade.prefix(1) == grades[selectedGrade] {
-                                    if item.racegrade.count == 1 || (item.racegrade.count == 2 && subgrades[selectedSubGrade] == "") {
-                                        // can't mix grade alone with subgrades
+                                    if item.racegrade.count == 1 || (item.racegrade.count == 2 && subgrades[selectedSubGrade] == "-") {
+                                        // can't mix grade along with subgrades
                                         HCmsg = "Can't mix a grade and subgrades"
                                         return
                                     }
@@ -1948,11 +1986,18 @@ struct ContentView: View {
                             }
                             // add the handicap to the list
                             var newHandicap = Handicap()
-                            newHandicap.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            if subgrades[selectedSubGrade] == "-" {
+                                newHandicap.racegrade = grades[selectedGrade]
+                            } else {
+                                newHandicap.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            }
                             newHandicap.time = (Int(min.value) ?? 0) * 60 + (Int(sec.value) ?? 0)
                             handicaps.append(newHandicap)
-                            HCmsg = "Handicap set for " + grades[selectedGrade] + subgrades[selectedSubGrade]
+                            HCmsg = "Handicap set for " + newHandicap.racegrade
+                            
                             sortHandicaps()
+                            // check entered riders are in handicaped grade/subgrade
+                            adjustGrades()
                         }) {
                             Text("Set")
                                 .padding()
@@ -2169,6 +2214,7 @@ struct ContentView: View {
                             .frame(width: 50)
                             .clipped()
                             if raceTypes[myConfig.raceType] != "Crit" {
+                                Text("Sub")
                                 // Add picker for subgrade 1,2
                                 Picker(selection: $selectedSubGrade, label : Text("")){
                                     ForEach(0 ..< subgrades.count, id:\.self) {
@@ -2197,7 +2243,11 @@ struct ContentView: View {
                             }
                         case "Graded", "Hcp":
                             // set the race grade
-                            selectedRider.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            if subgrades[selectedSubGrade] == "-" {
+                                selectedRider.racegrade = grades[selectedGrade]
+                            } else {
+                                selectedRider.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            }
                         case "Crit":
                             if myConfig.championship {
                                 var ageClass = 0
@@ -2258,25 +2308,29 @@ struct ContentView: View {
                     if raceTypes[myConfig.raceType] != "Age" && raceTypes[myConfig.raceType] != "Age Std" && !myConfig.championship {
                     // Regrade button
                         Button(action: {
+                            var subgrade = ""
+                            if subgrades[selectedSubGrade] == "-" {
+                                subgrade = ""
+                            }
                             // check if the rider has been placed
                             if arrayStarters[starterId].place != "" || arrayStarters[starterId].overTheLine != ""  {
                                 riderDetails = "Rider must be unplaced before regrading"
                                 return
                             }
-                            if arrayStarters[starterId].racegrade == grades[selectedGrade] + subgrades[selectedSubGrade] {
+                            if arrayStarters[starterId].racegrade == grades[selectedGrade] + subgrade {
                                 riderDetails = "Rider already in " + grades[selectedGrade]
                                 return
                             }
                             // set the race grade
                             if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Wheel" {
-                                arrayStarters[starterId].racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                                arrayStarters[starterId].racegrade = grades[selectedGrade] + subgrade
                             } else {
                                 arrayStarters[starterId].racegrade = grades[selectedGrade]
                             }
                             
                             setStartingGrades()
                             checkHandicaps()
-                            riderDetails = "Regraded to " + grades[selectedGrade] + subgrades[selectedSubGrade]
+                            riderDetails = "Regraded to " + grades[selectedGrade] + subgrade
                             regradeDisabled = true
                         }) {
                             Text("Regrade")
@@ -2845,12 +2899,17 @@ struct ContentView: View {
                     }
                     
                     // hide start on master and when disabled
-                    if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled {
+                    if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled && !running {
+                    HStack {
+                    Text(" ") // push button away from LHS of screen
                     // Start button
                     Button(action: {
-                        AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
-                        TimingMsg = "Race Started"
                         if !running {
+                            AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
+                            let date = Date()
+                            dateformatter.dateFormat = "HH:mm:ss"
+                            TimingMsg = "Race Started at " + dateformatter.string(from: date)
+                            raceStarted = true
                             running = true
                             self.stopWatchManager.storeStartTime()
                             self.stopWatchManager.startTimer()
@@ -2921,11 +2980,12 @@ struct ContentView: View {
                         .cornerRadius(10)
                     }
                     }
+                    }
                     } // end HStack group
                     Text("") // spacer
                     // hide record and stop buttons on the paired slave
                     if !peripheralPaired {
-                    if raceTypes[myConfig.raceType] != "Wheel" {
+                    if raceTypes[myConfig.raceType] != "Wheel" && raceStarted {
                         HStack {
                         Text(" ") // push button away from LHS of screen
                         // Record button
@@ -3073,6 +3133,11 @@ struct ContentView: View {
                     if reset {
                         stopWatchManager.reset()
                         reset = false  // reset done
+                    }
+                    if running {
+                        dateformatter.dateFormat = "HH:mm:ss"
+                        let date = UserDefaults.standard.object(forKey: "startDateTime") as! Date?
+                        TimingMsg = "Race Started at " + dateformatter.string(from: date!)
                     }
                     checkHandicaps()
                     overTheLine = unplacedTimes()  //unplacedSpots.count
@@ -4041,7 +4106,7 @@ struct ContentView: View {
                                             if arrayStarters[index].racegrade == grade.racegrade {
                                                 var dateComponent = DateComponents()
                                                 // TODO check if this needs to be split to minutes and seconds - seems OK
-                                                dateComponent.second = 0 - handicapSecForGrade(grade: arrayStarters[index].racegrade)
+                                                dateComponent.second = handicapSecForGrade(grade: arrayStarters[index].racegrade)
                                                 
                                                 // need start time
                                                 arrayStarters[index].startTime = Calendar.current.date(byAdding: dateComponent, to: grade.startTime!)
