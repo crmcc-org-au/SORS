@@ -545,6 +545,29 @@ func handicapSecForGrade(grade: String) -> Int {
     return 0
 }
 
+func adjustGrades() {
+    // check the handicaps and if subgrades are use, split the grade, else recombine.
+    for item in handicaps {
+        if item.racegrade.count == 1 {
+            // no subgrades
+            for rider in arrayStarters.indices {
+                if arrayStarters[rider].racegrade.prefix(1) == item.racegrade {
+                    arrayStarters[rider].racegrade = item.racegrade
+                }
+            }
+        } else {
+            // grade uses subgrades
+            for rider in arrayStarters.indices {
+                if arrayStarters[rider].racegrade.prefix(1) == item.racegrade.prefix(1) {
+                    arrayStarters[rider].racegrade = item.racegrade.prefix(1) + arrayStarters[rider].subgrade
+                }
+            }
+            
+        }
+    }
+    setStartingGrades()
+}
+
 func checkHandicaps() {
     // check that the configured handicaps are ok for race start
     handicapsOK = true
@@ -553,6 +576,7 @@ func checkHandicaps() {
     missingHandicaps = ""
     startingHandicaps = []
     
+    adjustGrades()
     for rider in arrayStarters {
         if rider.racegrade != directorGrade && rider.racegrade != marshalGrade {
             var handicapFound = false
@@ -1855,28 +1879,7 @@ struct ContentView: View {
             displayHandicaps = handicaps
         }
         
-        func adjustGrades() {
-            // check the handicaps and if subgrades are use, split the grade, else recombine.
-            for item in handicaps {
-                if item.racegrade.count == 1 {
-                    // no subgrades
-                    for rider in arrayStarters.indices {
-                        if arrayStarters[rider].racegrade.prefix(1) == item.racegrade {
-                            arrayStarters[rider].racegrade = item.racegrade
-                        }
-                    }
-                } else {
-                    // grade uses subgrades
-                    for rider in arrayStarters.indices {
-                        if arrayStarters[rider].racegrade.prefix(1) == item.racegrade.prefix(1) {
-                            arrayStarters[rider].racegrade = item.racegrade.prefix(1) + arrayStarters[rider].subgrade
-                        }
-                    }
-                    
-                }
-            }
-            setStartingGrades()
-        }
+        
         
         private func endEditing() {
             UIApplication.shared.endEditing()
