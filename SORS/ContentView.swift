@@ -1510,7 +1510,12 @@ struct ContentView: View {
                                             // set the race grade
                                             if raceGradeOK(raceGrade: pre["grade"] as! String) {
                                                 newRider.racegrade = pre["grade"] as! String
-                                                newRider.subgrade = String(pre["subgrade"] as! Int)
+                                                if let sgrade = pre["subgrade"] as? Int  {
+                                                    newRider.subgrade = String(sgrade)
+                                                }
+                                                else {
+                                                    newRider.subgrade = "1"
+                                                }
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
                                             }
@@ -4034,6 +4039,7 @@ struct ContentView: View {
                             sortPlaces()
                             
                         } else {
+                        // non-stage event
                         // find the rider in arrayStarters and set place to next place
                         if raceTypes[myConfig.raceType] == "Crit" {
                             // Crit race - no timings
@@ -4894,10 +4900,10 @@ struct ContentView: View {
                         }
                         var place = 1
                         for i in 0...(displayStarters.count - 1) {
-                            if displayStarters[i].raceTime > 0.0 {
+//                            if displayStarters[i].raceTime > 0.0 {    // TODO may need this ?
                                 displayStarters[i].place = String(place)
                                 place = place + 1
-                            }
+//                            }
                         }
                     } else if raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age" || raceTypes[myConfig.raceType] == "TT"  {
                         // set places per grade based on raceTime
