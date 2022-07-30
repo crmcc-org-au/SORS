@@ -4850,6 +4850,7 @@ struct ContentView: View {
                                 default:
                                     points = "2"
                                 }
+                                // for handicaps, append the handicap time
                                 if raceTypes[myConfig.raceType]  == "Wheel"  {
                                     displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
                                 } else {
@@ -4862,8 +4863,12 @@ struct ContentView: View {
                             }
                         }
                         // finish time format in RMS is text ie just displays what is given
-                        // for handicaps, append the handicap time
-                        csvString = csvString.appending("\(starter.id)\t\(starter.racenumber)\t\(surname)\t\(givenName)\t\("")\t\("")\t\("")\t\(starter.racegrade)\t\(outputPlace)\t\(starter.overTheLine)\t\(displayTime)\t\(points)\n")
+                        if raceTypes[myConfig.raceType] == "Age Std" {
+                            csvString = csvString.appending("\(starter.id)\t\(starter.racenumber)\t\(surname)\t\(givenName)\t\("")\t\("")\t\("")\t\(starter.gender)\t\(outputPlace)\t\(starter.overTheLine)\t\(displayTime)\t\(points)\n")
+                        } else {
+                            csvString = csvString.appending("\(starter.id)\t\(starter.racenumber)\t\(surname)\t\(givenName)\t\("")\t\("")\t\("")\t\(starter.racegrade)\t\(outputPlace)\t\(starter.overTheLine)\t\(displayTime)\t\(points)\n")
+                        }
+                        
                     }
                     
                     let fileManager = FileManager.default
