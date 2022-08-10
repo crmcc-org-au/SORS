@@ -280,7 +280,7 @@ func dateAsTime(_ date: Date) -> String{
 }
 
 func resetRiders() {
-    // resets the riders list to allow for a race restart
+    // resets the riders list for a race reset
     for rider in arrayStarters.indices {
         arrayStarters[rider].place = ""
         arrayStarters[rider].ttOffset = 0.0
@@ -916,9 +916,10 @@ struct ContentView: View {
                     .padding()
                     .foregroundColor(Color.blue)
                 }
+                HStack {
                 // Reset button
                 Button(action: {
-                    // Reset things required to restart the race
+                    // Reset things required for a new race
                     unplacedRiders = []
                     startedGrades = []
                     finishTimes = []
@@ -974,6 +975,30 @@ struct ContentView: View {
                     .frame(width: 100, height: 50, alignment: .leading)
                     .background(Color.red)
                     .cornerRadius(10)
+                    
+                    Text("    ")  // spacer
+                    
+                    // Restart button
+                    Button(action: {
+                        // Reset things required to restart the race
+                        startedGrades = []
+                        finishTimes = []
+                        running = false
+                        raceStarted = false
+                        recordDisabled = true
+                        resetRiders()
+                        
+                        setStartingGrades()
+                        result = "Ready to restart"
+                    }) {
+                        Text("Restart")
+                            .padding()
+                            .foregroundColor(.black)
+                        }
+                        .frame(width: 100, height: 50, alignment: .leading)
+                        .background(Color.orange)
+                        .cornerRadius(10)
+                }
                     
                 Text(result)
 //                Spacer()
@@ -2907,86 +2932,88 @@ struct ContentView: View {
                     }
                     
                     // hide start on master and when disabled
-                    if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") || !self.stopWatchManager.started ) && !startDisabled && !running {
-                    HStack {
-                    Text(" ") // push button away from LHS of screen
-                    // Start button
-                    Button(action: {
-                        if !running {
-                            AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
+                    if ((raceTypes[myConfig.raceType] != "TT" && raceTypes[myConfig.raceType] != "Age Std") ||
+                            !self.stopWatchManager.started )
+                        && !startDisabled && !running || (running && !startDisabled) {
+                        HStack {
+                        Text(" ") // push button away from LHS of screen
+                        // Start button
+                        Button(action: {
                             let date = Date()
                             dateformatter.dateFormat = "HH:mm:ss"
-                            TimingMsg = "Race Started at " + dateformatter.string(from: date)
-                            raceStarted = true
-                            running = true
-                            self.stopWatchManager.storeStartTime()
-                            self.stopWatchManager.startTimer()
-                        }
-                        
-                        switch raceTypes[myConfig.raceType] {
-                        case "Graded", "Age":
-                            TimingMsg = unstartedGrades[selectedStartGrade] + " Grade started"
-                            // remove the started grade
-                            for grade in unstartedGrades.indices {
-                                if unstartedGrades[grade] == unstartedGrades[selectedStartGrade] {
-                                    // record the grade's start time
-                                    var newStart = StartedGrade()
-                                    newStart.racegrade = unstartedGrades[grade]
-                                    newStart.startTime = Date()
-                                    startedGrades.append(newStart)
-                                    unstartedGrades.remove(at: grade)
-                                    selectedStartGrade = 0
-                                    break
+                            AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
+                            if !running {
+                                TimingMsg = "Race Started at " + dateformatter.string(from: date)
+                                raceStarted = true
+                                running = true
+                                self.stopWatchManager.storeStartTime()
+                                self.stopWatchManager.startTimer()
+                            }
+                            
+                            switch raceTypes[myConfig.raceType] {
+                            case "Graded", "Age":
+                                TimingMsg = unstartedGrades[selectedStartGrade] + " Grade started at " + dateformatter.string(from: date)
+                                // remove the started grade
+                                for grade in unstartedGrades.indices {
+                                    if unstartedGrades[grade] == unstartedGrades[selectedStartGrade] {
+                                        // record the grade's start time
+                                        var newStart = StartedGrade()
+                                        newStart.racegrade = unstartedGrades[grade]
+                                        newStart.startTime = Date()
+                                        startedGrades.append(newStart)
+                                        unstartedGrades.remove(at: grade)
+                                        selectedStartGrade = 0
+                                        break
+                                    }
                                 }
-                            }
-                            if unstartedGrades.count == 0 {
+                                if unstartedGrades.count == 0 {
+                                    startDisabled = true
+        //                            stopDisabled = false
+                                    recordDisabled = false
+                                    self.stopWatchManager.stopTimer()
+                                } else {
+        //                            stopDisabled = true
+                                }
+                            case "Hcp":
+                                // Just started the 1st grade
                                 startDisabled = true
-    //                            stopDisabled = false
                                 recordDisabled = false
-                                self.stopWatchManager.stopTimer()
-                            } else {
-    //                            stopDisabled = true
+        //                        stopDisabled = false
+                            case "Secret":
+                                // Just started everyone at once
+                                startDisabled = true
+                                recordDisabled = false
+        //                        stopDisabled = false
+                                for unstartedGrade in unstartedGrades {
+                                    var newStartedGrade = StartedGrade()
+                                    newStartedGrade.racegrade = unstartedGrade
+                                    newStartedGrade.startTime = Date()
+                                    startedGrades.append(newStartedGrade)
+                                }
+                                unstartedGrades = []
+                                self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
+                                raceStarted = true
+                            case "Wheel":
+                                startDisabled = true
+                                recordDisabled = true  // not timed
+    //                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
+        //                        stopDisabled = false   // timer stops after all grades are started
+                            case "Age Std", "TT":
+                                startDisabled = true
+                                recordDisabled = false
+        //                        stopDisabled = false
+                            default:
+                                startDisabled = true
                             }
-                        case "Hcp":
-                            // Just started the 1st grade
-                            startDisabled = true
-                            recordDisabled = false
-    //                        stopDisabled = false
-                        case "Secret":
-                            // Just started everyone at once
-                            startDisabled = true
-                            recordDisabled = false
-    //                        stopDisabled = false
-                            for unstartedGrade in unstartedGrades {
-                                var newStartedGrade = StartedGrade()
-                                newStartedGrade.racegrade = unstartedGrade
-                                newStartedGrade.startTime = Date()
-                                startedGrades.append(newStartedGrade)
-                            }
-                            unstartedGrades = []
-                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
-                            raceStarted = true
-                        case "Wheel":
-                            startDisabled = true
-                            recordDisabled = true  // not timed
-//                            self.stopWatchManager.stopTimer()  // stop the timer.  Recording uses actual time of day
-    //                        stopDisabled = false   // timer stops after all grades are started
-                        case "Age Std", "TT":
-                            startDisabled = true
-                            recordDisabled = false
-    //                        stopDisabled = false
-                        default:
-                            startDisabled = true
+                        }) {
+                            Text(startBtnTxt)
+                                .padding()
+                                .foregroundColor(.black)
+                            }.disabled(startDisabled)
+                            .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
+                            .background(startDisabled ? Color.gray : Color.green)
+                            .cornerRadius(10)
                         }
-                    }) {
-                        Text(startBtnTxt)
-                            .padding()
-                            .foregroundColor(.black)
-                        }.disabled(startDisabled)
-                        .frame(width: /*@START_MENU_TOKEN@*/100/*@END_MENU_TOKEN@*/, height: buttonHeight, alignment: .leading)
-                        .background(startDisabled ? Color.gray : Color.green)
-                        .cornerRadius(10)
-                    }
                     }
                     }
                     } // end HStack group
@@ -3297,7 +3324,7 @@ struct ContentView: View {
     }
     
     struct PlacesView: View {
-        @State private var selectedGrade = 0
+        @State private var selectedGrade = -1
         @State var riderDetails = ""
         @State var selectedRider = Rider()
         @State var listHeight: Double = fullListHeight
@@ -3470,6 +3497,7 @@ struct ContentView: View {
                         arrayStarters[index].stageResults[myConfig.currentStage].raceTime = 0.0
                         break
                     } else {
+                        // not a stage race
                         if raceTypes[myConfig.raceType] == "Wheel" || raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "TT" || raceTypes[myConfig.raceType] == "Age Std" || raceTypes[myConfig.raceType] == "Secret" {
                             deletedPlace = Int(arrayStarters[index].overTheLine) ?? 0
                         } else {
@@ -3518,7 +3546,11 @@ struct ContentView: View {
                     }
                 }
             }
-            getUnplaced(grade: self.selectedGrade)
+            if raceTypes[myConfig.raceType] == "Crit" {
+                getUnplaced(grade: self.selectedGrade)
+            } else {
+                getUnplaced()
+            }
             getUnplacedSpots()
             riderDetails = racenumber + " unplaced"
         }
