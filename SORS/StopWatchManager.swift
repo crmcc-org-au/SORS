@@ -218,7 +218,6 @@ class StopWatchManager: ObservableObject {
             // set the 1st grade to start
             nextStart = sortedHandicaps[0].racegrade
             trimTime = sortedHandicaps[0].time
-            
         }
         if sortedHandicaps.count > 0 {
             for i in 0...(sortedHandicaps.count - 1) {

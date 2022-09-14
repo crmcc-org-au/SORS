@@ -42,6 +42,7 @@ struct Config: Codable  {
     var numbStages = 2
     var stages:[Stage]  = [Stage(), Stage()]   // min of two stages
     var currentStage = 0   // 0 based array
+    var hcpScratch: Bool = false   // true for fastest grade being set at 0:00 else slowest grade has 0:00
 }
 
 struct Rider: Codable {
@@ -190,6 +191,7 @@ didSet {
     }
 }
 var startingHandicaps: [Handicap] = []   // handicaps for grades that have starters
+var orderedHandicaps: [Handicap] = []   // handicaps in starting order slowest grade first
 
 var unstartedGrades = [String]() {  // list of grades yet to start
 didSet {
@@ -237,6 +239,17 @@ func unplacedTimes() -> Int {
         }
     }
     return count
+}
+
+func gradeIndex(grade: String) -> Int {
+    // return the arrary index for a given grade
+    for (index, item) in grades.enumerated() {
+        if item == grade {
+            return index
+        }
+        
+    }
+    return -1 // grade not found
 }
 
 func secAsTime(_ time: Int) -> String{
@@ -404,10 +417,10 @@ func initStageResults() {
     }
 }
 
-func gradeIndex(grade: String) -> Int {
+func gradeIndex(grd: String) -> Int {
     // gets the index in the array of grades for the specified grade
     for i in 0...(grades.count - 1) {
-        if grades[i] == grade {
+        if grades[i] == grd {
             return i
         }
     }
@@ -568,6 +581,58 @@ func adjustGrades() {
     setStartingGrades()
 }
 
+func sortHandicapsByGrd(asc: Bool) -> [Handicap] {
+    // sort the hcps based on grade, asc [A, B, C ...] or desc  [D2, D1, C ...]
+    return handicaps.sorted {
+        if asc {
+            if $0.racegrade.prefix(1) == $1.racegrade.prefix(1) {
+                if $0.racegrade.suffix(1) == "1" {
+                    return true
+                } else {
+                    return false
+                }
+            }
+            return gradeIndex(grade: String($0.racegrade.prefix(1))) < gradeIndex(grade: String($1.racegrade.prefix(1)))
+        } else {
+            if $0.racegrade.prefix(1) == $1.racegrade.prefix(1) {
+                if $0.racegrade.suffix(1) == "2" {
+                    return true
+                } else {
+                    return false
+                }
+            }
+            return gradeIndex(grade: String($0.racegrade.prefix(1))) > gradeIndex(grade: String($1.racegrade.prefix(1)))
+        }
+    }
+}
+
+func switchHandicaps(order: Bool) -> [Handicap] {
+    // change the handicaps
+    var newHandicaps = sortHandicapsByGrd(asc: !order)  // make sure handicaps are in the 'correct' starting order
+    let sortedHandicaps = newHandicaps
+    var newHandicapsPtr = 0
+    
+    if sortedHandicaps.count > 1 {
+        for item in sortedHandicaps {
+            // fastest grade being set at lowest time
+            if newHandicapsPtr == 0 {
+                // set the first to be the last
+                newHandicaps[newHandicapsPtr].time = sortedHandicaps[sortedHandicaps.count - 1].time
+            } else {
+                if newHandicapsPtr == sortedHandicaps.count - 1 {
+                    // set the last to be the 1st
+                    newHandicaps[newHandicapsPtr].time = sortedHandicaps[0].time
+                } else {
+                    newHandicaps[newHandicapsPtr].time = sortedHandicaps[sortedHandicaps.count - 1].time - (item.time - sortedHandicaps[0].time)
+                }
+            }
+            newHandicapsPtr = newHandicapsPtr + 1
+        }
+    }
+   
+    return newHandicaps
+}
+
 func checkHandicaps() {
     // check that the configured handicaps are ok for race start
     handicapsOK = true
@@ -575,12 +640,21 @@ func checkHandicaps() {
     var missing : [String] = []
     missingHandicaps = ""
     startingHandicaps = []
+    orderedHandicaps = []
     
     adjustGrades()
+    
+    if myConfig.hcpScratch {
+        // handicaps are set at fastest grade starting at lowest time
+        // this needs to be reversed to start the slowest grades first
+        orderedHandicaps = switchHandicaps(order: false)
+    } else {
+        orderedHandicaps = handicaps
+    }
     for rider in arrayStarters {
         if rider.racegrade != directorGrade && rider.racegrade != marshalGrade {
             var handicapFound = false
-            for handicap in handicaps {
+            for handicap in orderedHandicaps {
                 if rider.racegrade == handicap.racegrade {
                     var alreadyFound = false
                     for startHandicap in startingHandicaps {
@@ -621,6 +695,10 @@ func checkHandicaps() {
         for i in 0...(missing.count - 1) {
             missingHandicaps = missing[i] + comma + missingHandicaps
             comma = ","
+        }
+    } else {
+        startingHandicaps = startingHandicaps.sorted {
+            return $0.time < $1.time
         }
     }
 }
@@ -1364,7 +1442,7 @@ struct ContentView: View {
                                             // set the race grade
                                             if raceGradeOK(raceGrade: pre["grade"] as! String) {
                                                 newRider.racegrade = pre["grade"] as! String
-                                                newRider.subgrade = String(pre["subgrade"] as! Int)
+                                                newRider.subgrade = String(pre["subgrade"] as? Int ?? 1) 
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
                                             }
@@ -1857,9 +1935,11 @@ struct ContentView: View {
         @ObservedObject var sec = Time(limit: 2)
         @ObservedObject var min = Time(limit: 2)
         @State var HCmsg = ""
+        @State var HCmsgColor = Color.black
         @State var mode: EditMode = .inactive
         
         @State var listHeight: Double = handicapsListHeight
+        @State var hcpScratch: Bool = myConfig.hcpScratch  // true for fastest grade being set at lowest time else slowest grade has lowest time
 
         func checkSec(_ value: String) {
             sec.value = String(value.prefix(sec.limit))
@@ -1903,13 +1983,18 @@ struct ContentView: View {
         }
         
         func sortHandicaps() {
-            handicaps = handicaps.sorted {
-                return $0.time < $1.time
+            // sort the hcps based on settings order
+            if myConfig.hcpScratch {
+                handicaps = handicaps.sorted {
+                    return $0.time < $1.time
+                }
+            } else {
+                handicaps = handicaps.sorted {
+                    return $0.time > $1.time
+                }
             }
             displayHandicaps = handicaps
         }
-        
-        
         
         private func endEditing() {
             UIApplication.shared.endEditing()
@@ -1929,6 +2014,7 @@ struct ContentView: View {
                             if mode == EditMode.active {
                                 Button(action: {
                                     deleteHandicap(racegrade: handicap.racegrade)
+                                    HCmsg = "Handicap deleted for " + handicap.racegrade
                                 }) {
                                     Text("Remove")
                                         .padding()
@@ -1948,6 +2034,7 @@ struct ContentView: View {
                     }
                     .environment(\.editMode, $mode)
                     
+                    VStack {
                     HStack {
                         Text("Grade:")
                         Picker(selection: $selectedGrade, label : Text("")){
@@ -1990,15 +2077,25 @@ struct ContentView: View {
                         Button(action: {
                             // set handicap time for grade
                             // check the handicap hasn't already been set
-                            for item in handicaps {
-                                var testgrade = ""
-                                if subgrades[selectedSubGrade] == "-" {
-                                    testgrade = grades[selectedGrade]
-                                } else {
-                                    testgrade = grades[selectedGrade] + subgrades[selectedSubGrade]
-                                }
+                            var testgrade = ""
+                            if subgrades[selectedSubGrade] == "-" {
+                                testgrade = grades[selectedGrade]
+                            } else {
+                                testgrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            }
+                            var newHandicap = Handicap()
+                            if subgrades[selectedSubGrade] == "-" {
+                                newHandicap.racegrade = grades[selectedGrade]
+                            } else {
+                                newHandicap.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
+                            }
+                            newHandicap.time = (Int(min.value) ?? 0) * 60 + (Int(sec.value) ?? 0)
+                            
+                            // test the handicap is ok
+                            for (index, item) in handicaps.enumerated() {
                                 if item.racegrade == testgrade {
                                     HCmsg = "Handicap is already set for " + testgrade
+                                    HCmsgColor = Color.red
                                     return
                                 }
                                 // check subgrades and grade are not being used at the same time
@@ -2006,6 +2103,7 @@ struct ContentView: View {
                                     if item.racegrade.count == 1 || (item.racegrade.count == 2 && subgrades[selectedSubGrade] == "-") {
                                         // can't mix grade along with subgrades
                                         HCmsg = "Can't mix a grade and subgrades"
+                                        HCmsgColor = Color.red
                                         return
                                     }
                                 }
@@ -2014,19 +2112,58 @@ struct ContentView: View {
                                 let t = (Int(min.value) ?? 0) * 60 + (Int(sec.value) ?? 0)
                                 if abs(item.time - t) < minInterval {
                                     HCmsg = "Grades need to be at least " + String(minInterval) + " seconds apart"
+                                    HCmsgColor = Color.red
                                     return
+                                }
+                                // check the order of handicaps is correct
+                                if hcpScratch {
+                                    // fastest grade has handicap at lowest time
+                                    if handicaps[index].racegrade.prefix(1) == grades[selectedGrade] {
+                                        // base grades are the same - check the subgrade
+                                        if (subgrades[selectedSubGrade] == "2" && item.time > newHandicap.time ) ||
+                                            (subgrades[selectedSubGrade] == "1" && item.time < newHandicap.time ) {
+                                            HCmsg = "Handicaps are out of order"
+                                            HCmsgColor = Color.red
+                                            return
+                                        }
+                                    } else {
+                                        // base grades are different
+                                        if (gradeIndex(grade: String(item.racegrade.prefix(1)) ) < gradeIndex(grade: String(grades[selectedGrade])) && item.time > newHandicap.time) ||
+                                            (gradeIndex(grade: String(item.racegrade.prefix(1)) ) > gradeIndex(grade: String(grades[selectedGrade])) && item.time < newHandicap.time)
+                                        {
+                                            HCmsg = "Handicaps are out of order"
+                                            HCmsgColor = Color.red
+                                            return
+                                        }
+                                    }
+                                    
+                                } else {
+                                    // slowest grade has handicap at lowest time
+                                    if handicaps[index].racegrade.prefix(1) == grades[selectedGrade] {
+                                        // base grades are the same - check the subgrade
+                                        if (subgrades[selectedSubGrade] == "2" && item.time < newHandicap.time ) ||
+                                            (subgrades[selectedSubGrade] == "1" && item.time > newHandicap.time ) {
+                                            HCmsg = "Handicaps are out of order"
+                                            HCmsgColor = Color.red
+                                            return
+                                        }
+                                    } else {
+                                        // base grades are different
+                                        if (gradeIndex(grade: String(item.racegrade.prefix(1)) ) < gradeIndex(grade: String(grades[selectedGrade])) && item.time < newHandicap.time) ||
+                                            (gradeIndex(grade: String(item.racegrade.prefix(1)) ) > gradeIndex(grade: String(grades[selectedGrade])) && item.time > newHandicap.time)
+                                        
+                                        {
+                                            HCmsg = "Handicaps are out of order"
+                                            HCmsgColor = Color.red
+                                            return
+                                        }
+                                    }
                                 }
                             }
                             // add the handicap to the list
-                            var newHandicap = Handicap()
-                            if subgrades[selectedSubGrade] == "-" {
-                                newHandicap.racegrade = grades[selectedGrade]
-                            } else {
-                                newHandicap.racegrade = grades[selectedGrade] + subgrades[selectedSubGrade]
-                            }
-                            newHandicap.time = (Int(min.value) ?? 0) * 60 + (Int(sec.value) ?? 0)
                             handicaps.append(newHandicap)
                             HCmsg = "Handicap set for " + newHandicap.racegrade
+                            HCmsgColor = Color.black
                             
                             sortHandicaps()
                             // check entered riders are in handicaped grade/subgrade
@@ -2041,12 +2178,33 @@ struct ContentView: View {
                             .cornerRadius(10)
                         
                     }  // end HStack
+                    HStack {
+                        Toggle(isOn: $hcpScratch) {
+                            Text("Fastest Grade at lowest time")
+        //                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+                        .frame(width:300, alignment: .center)
+                        .onChange(of: hcpScratch) {
+                            myConfig.hcpScratch = $0
+                            handicaps = switchHandicaps(order: myConfig.hcpScratch)
+                            sortHandicaps()
+                            HCmsg = "Handicaps switched"
+                            HCmsgColor = Color.black
+                        }
+                    }
+                }
                     Text(HCmsg)
+                    .foregroundColor(HCmsgColor)
                 }
             }
             .onAppear {
+                //self.switchHandicaps(order: myConfig.hcpScratch)
                 self.sortHandicaps()
             }
+            .onDisappear(perform: {
+                // always set lowest grades to start 1st for handicaps
+                //self.switchHandicaps(order: true)
+            })
             .navigationBarTitle("Handicaps", displayMode: .inline)
             .frame(height: CGFloat(listHeight))
             
@@ -2759,6 +2917,7 @@ struct ContentView: View {
         @State var displayItem: Double = -1.0
         @State var startBtnTxt = "Start"
         @State var TimingMsg = ""
+        @State var TimingMsgColor = Color.black
         @State var displayPlaces = finishTimes
         @State var mode: EditMode = .inactive
         
@@ -2824,6 +2983,7 @@ struct ContentView: View {
             displayPlaces = finishTimes
 //            unplacedSpots.append(newTime.displayTime)
             TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+            TimingMsgColor = Color.black
         }
 
         func removePlace(_ finishTime: FinishTime) {
@@ -2850,6 +3010,7 @@ struct ContentView: View {
             }
             overTheLine =  overTheLine - 1
             TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+            TimingMsgColor = Color.black
         }
         
         func allowPlaceDelete(_ finishTime: FinishTime) -> Bool {
@@ -2895,10 +3056,11 @@ struct ContentView: View {
                         }
                     case "Hcp", "Wheel":
                         if handicaps.count == 0 {
-                            Text("No grades to start")
+                            Text("   No grades to start")
                                 .frame(height: buttonHeight)
                         } else {
                             // show the grade that is about to start - grades should never start together
+                            
                             Text("  " + stopWatchManager.nextStart)  // pad a bit to the right
                                 .font(Font.body.monospacedDigit())
                                 .frame(height: buttonHeight)
@@ -2942,8 +3104,12 @@ struct ContentView: View {
                             let date = Date()
                             dateformatter.dateFormat = "HH:mm:ss"
                             AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
-                            if !running {
+                            if running {
+                                TimingMsg = "Race is already running"
+                                TimingMsgColor = Color.red
+                            } else {
                                 TimingMsg = "Race Started at " + dateformatter.string(from: date)
+                                TimingMsgColor = Color.black
                                 raceStarted = true
                                 running = true
                                 self.stopWatchManager.storeStartTime()
@@ -3029,6 +3195,7 @@ struct ContentView: View {
                             overTheLine = finishTimes.count + 1
                             getUnplaced(grade: -1)
                             TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+                            TimingMsgColor = Color.black
                             // record a finish time
                             newTime.id = UUID()
                             newTime.overTheLine = overTheLine
@@ -3156,6 +3323,8 @@ struct ContentView: View {
                     HStack {
                     Text(TimingMsg)
                         .padding(.bottom, 5)
+                        .foregroundColor(TimingMsgColor)
+                        
                     }
                     .frame(width: 400, alignment: .center)
                     
@@ -3173,6 +3342,7 @@ struct ContentView: View {
                         dateformatter.dateFormat = "HH:mm:ss"
                         let date = UserDefaults.standard.object(forKey: "startDateTime") as! Date?
                         TimingMsg = "Race Started at " + dateformatter.string(from: date!)
+                        TimingMsgColor = Color.black
                     }
                     checkHandicaps()
                     overTheLine = unplacedTimes()  //unplacedSpots.count
@@ -3186,6 +3356,7 @@ struct ContentView: View {
                             startDisabled = true
     //                        stopDisabled = false
                             TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                            TimingMsgColor = Color.black
                         } else {
                             unstartedGrades.sort()
                             startDisabled = false
@@ -3194,20 +3365,24 @@ struct ContentView: View {
                             } else {
                                 TimingMsg = String(unstartedGrades.count) + " Grades to start"
                             }
+                            TimingMsgColor = Color.black
                         }
                     case "Hcp", "Wheel":
                         if handicaps.count == 0 || !handicapsOK {
                             running = false
                             startDisabled = true
                             TimingMsg = "Missing handicaps - " + missingHandicaps
+                            TimingMsgColor = Color.red
                         } else if startingHandicaps.count == 0 {
                             startDisabled = true
                             TimingMsg = "No riders to start"
+                            TimingMsgColor = Color.black
                         } else if stopWatchManager.stopped {
                             // all grades started
                             running = false
                             startDisabled = true
                             TimingMsg = "All grades started"
+                            TimingMsgColor = Color.black
                         } else {
                             // load the handicaps into the stopWatchManager
                             // only loads the handicaps that have riders in the handicapped grade
@@ -3217,6 +3392,7 @@ struct ContentView: View {
                                 recordDisabled = false // checks are on button for handicaps still to start
                             }
                             TimingMsg = String(startingHandicaps.count) + " starting Grades"
+                            TimingMsgColor = Color.black
                         }
                     case "Secret":
                         // everyone starts together
@@ -3225,9 +3401,11 @@ struct ContentView: View {
                             running = false
                             startDisabled = true
                             TimingMsg = "Missing handicaps - " + missingHandicaps
+                            TimingMsgColor = Color.red
                         } else if startingHandicaps.count == 0 {
                             startDisabled = true
                             TimingMsg = "No riders to start"
+                            TimingMsgColor = Color.black
                         } else if stopWatchManager.started || raceStarted {
                             startDisabled = true
     //                        stopDisabled = false
@@ -3254,6 +3432,7 @@ struct ContentView: View {
     //                        stopDisabled = false
                             recordDisabled  = false
                             TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                            TimingMsgColor = Color.black
                             return
                         }
                         if running {    // stopWatchManager.started {
@@ -3262,6 +3441,7 @@ struct ContentView: View {
                             if arrayStarters.count == 0 {
                                 startDisabled = true
                                 TimingMsg = "No riders to start"
+                                TimingMsgColor = Color.black
                             } else {
                                 stopWatchManager.loadTT(arrayStarters)
                                 startDisabled = false
@@ -3269,6 +3449,7 @@ struct ContentView: View {
                         }
                     case "Age Std":
                         TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+                        TimingMsgColor = Color.black
                         if peripheralPaired {
                             if stopWatchManager.started {
                                 startDisabled = true
@@ -3287,6 +3468,7 @@ struct ContentView: View {
     //                        stopDisabled = false
                             recordDisabled  = false
                             TimingMsg = String(max((unplacedRiders.count - unplacedTimes()), 0)) + " riders to finish"
+                            TimingMsgColor = Color.black
                             return
                         }
                         if stopWatchManager.started || finishTimes.count > 0  {
@@ -3295,6 +3477,7 @@ struct ContentView: View {
                             if arrayStarters.count == 0 {
                                 startDisabled = true
                                 TimingMsg = "No riders to start"
+                                TimingMsgColor = Color.black
                             } else {
                                 stopWatchManager.loadAgeStd(arrayStarters)
                                 startDisabled = false
@@ -4608,6 +4791,10 @@ struct ContentView: View {
         @State var givenName = ""
         var riderDetails = ""
         
+        private func hcpDisplayTime(rider: Rider) -> String {
+            return doubleAsTime(rider.raceTime) + " (" + handicapForGrade(grade: rider.racegrade) + ")"
+        }
+        
         private func formDetails(rider: Rider) -> String {
             // formats the results list based on race type
             if rider.racegrade == directorGrade || rider.racegrade == marshalGrade {
@@ -4712,7 +4899,7 @@ struct ContentView: View {
                             if raceTypes[myConfig.raceType] == "Wheel" {
                                 displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
                             } else if raceTypes[myConfig.raceType] == "Hcp" {
-                                displayTime = starter.displayTime + " (" + handicapForGrade(grade: starter.racegrade) + ")"
+                                displayTime = hcpDisplayTime(rider: starter)
                             } else if myConfig.stage || raceTypes[myConfig.raceType] == "Graded" {
                                 displayTime = doubleAsTime(starter.raceTime)
                             } else {
@@ -4886,7 +5073,7 @@ struct ContentView: View {
                                 if raceTypes[myConfig.raceType]  == "Wheel"  {
                                     displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
                                 } else {
-                                    displayTime = doubleAsTime(starter.raceTime) + " (" + handicapForGrade(grade: starter.racegrade) + ")"
+                                    displayTime = hcpDisplayTime(rider: starter)
                                 }
                             default:  // Age
                                 // no points as this is an age based race
@@ -4937,10 +5124,11 @@ struct ContentView: View {
                         }
                         var place = 1
                         for i in 0...(displayStarters.count - 1) {
-//                            if displayStarters[i].raceTime > 0.0 {    // TODO may need this ?
+                            if displayStarters[i].raceTime > 0.0 {
+                                // excludes officals from getting places
                                 displayStarters[i].place = String(place)
                                 place = place + 1
-//                            }
+                            }
                         }
                     } else if raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Age" || raceTypes[myConfig.raceType] == "TT"  {
                         // set places per grade based on raceTime
