@@ -1,0 +1,151 @@
+2021-02-11 00:45:44 +0000  Initial pipeline context: <IDEDistributionProcessingPipelineContext: 0x7fdc3e6bf390; archive(resolved)='<IDEArchive: 0x7fdc406ada50>', distributionTask(resolved)='2', distributionDestination(resolved)='2', distributionMethod(resolved)='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team(resolved)='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	Chain (13, self inclusive):
+	<IDEDistributionProcessingPipelineContext: 0x7fdc3e6bf390; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionProcessingPipelineContext: 0x7fdc3e6d9820; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc3d61b500; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc406c8ad0; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc406c4e50; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc40831c50; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc4081c910; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc401dd310; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc3d63a900; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc3d66c4e0; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='<IDEProvisioningDisambiguatableBasicTeam: 0x7fdc3ca9d690; teamID='W4U8P239UX', teamName='Ian McVay', teamType='Individual', username='imcvay@grapevine.com.au', isFreeProvisioningTeam='0'>'>
+	<IDEDistributionContext: 0x7fdc401665c0; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='(null)'>
+	<IDEDistributionContext: 0x7fdc4013e270; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='<IDEDistributionMethodiOSAppStoreDistribution: 0x7fdc3d41f6a0>', team='(null)'>
+	<IDEDistributionContext: 0x7fdc401aec10; archive = '<IDEArchive: 0x7fdc406ada50>', distributionMethod='(null)', team='(null)'>
+</IDEDistributionProcessingPipelineContext: 0x7fdc3e6bf390>
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCreateDestRootStep
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCopyItemStep
+2021-02-11 00:45:44 +0000  Running /usr/bin/ditto '-V' '/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app'
+2021-02-11 00:45:44 +0000  >>> Copying /Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app 
+2021-02-11 00:45:44 +0000  copying file ./_CodeSignature/CodeResources ... 
+2021-02-11 00:45:44 +0000  2775 bytes for ./_CodeSignature/CodeResources
+2021-02-11 00:45:44 +0000  copying file ./SORS ... 
+2021-02-11 00:45:44 +0000  3732960 bytes for ./SORS
+2021-02-11 00:45:44 +0000  copying file ./AppIcon60x60@2x.png ... 
+2021-02-11 00:45:44 +0000  15492 bytes for ./AppIcon60x60@2x.png
+2021-02-11 00:45:44 +0000  copying file ./Assets.car ... 
+2021-02-11 00:45:44 +0000  605864 bytes for ./Assets.car
+copying file ./AppIcon76x76@2x~ipad.png ... 
+2021-02-11 00:45:44 +0000  20390 bytes for ./AppIcon76x76@2x~ipad.png
+2021-02-11 00:45:44 +0000  copying file ./embedded.mobileprovision ... 
+2021-02-11 00:45:44 +0000  7435 bytes for ./embedded.mobileprovision
+2021-02-11 00:45:44 +0000  copying file ./Info.plist ... 
+2021-02-11 00:45:44 +0000  1525 bytes for ./Info.plist
+2021-02-11 00:45:44 +0000  copying file ./PkgInfo ... 
+2021-02-11 00:45:44 +0000  8 bytes for ./PkgInfo
+2021-02-11 00:45:44 +0000  /usr/bin/ditto exited with 0
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionEmbedProfileStep
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionInfoPlistStep
+2021-02-11 00:45:44 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionItemRemovalStep
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionAppThinningPlistStep
+2021-02-11 00:45:44 +0000  Skipping step: IDEDistributionAppThinningPlistStep because it said so
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCompileBitcodeStep
+2021-02-11 00:45:44 +0000  Skipping step: IDEDistributionCompileBitcodeStep because it said so
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCodeSlimmingStep
+2021-02-11 00:45:44 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app/SORS' '-l' '-o' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app/SORS'
+2021-02-11 00:45:44 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip exited with 0
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCopyBCSymbolMapsStep
+2021-02-11 00:45:44 +0000  Running /usr/bin/ditto '-V' '/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/BCSymbolMaps/1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/BCSymbolMaps/1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap'
+2021-02-11 00:45:44 +0000  >>> Copying /Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/BCSymbolMaps/1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap 
+2021-02-11 00:45:44 +0000  copying file ./1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap ... 
+2021-02-11 00:45:44 +0000  1202818 bytes for ./1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap
+2021-02-11 00:45:44 +0000  /usr/bin/ditto exited with 0
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionSymbolsStep
+2021-02-11 00:45:44 +0000  Excluding symbols for SORS.app
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionCopyAppleProvidedContentStep
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionAppThinningStep
+2021-02-11 00:45:44 +0000  Skipping step: IDEDistributionAppThinningStep because it said so
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionArchThinningStep
+2021-02-11 00:45:44 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app/SORS' '-verify_arch' 'arm64e'
+2021-02-11 00:45:44 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2021-02-11 00:45:44 +0000  Skipping architecture thinning for item "SORS" because arch "arm64e" wasn't found
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionODRStep
+2021-02-11 00:45:44 +0000  Processing step: IDEDistributionStripXattrsStep
+2021-02-11 00:45:44 +0000  Running /usr/bin/xattr '-crs' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app'
+2021-02-11 00:45:45 +0000  /usr/bin/xattr exited with 0
+2021-02-11 00:45:45 +0000  Processing step: IDEDistributionCodesignStep
+2021-02-11 00:45:45 +0000  Entitlements for <IDEDistributionItem: 0x7fdc3e3b28c0; bundleID='cc.actvets.SORS', path='<DVTFilePath:0x7fdc3d4c82f0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x7fdc3d1d5850; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x7fdc3e6dd400; name='Apple Development: imcvay@grapevine.com.au (VH9983N8H2)', hash='D272B3A47D5FC5D5C50ED4A45A4C750E8C8DBF06', serialNumber='<DVTSigningCertificateSerialNumber: 0x7fdc3e3c2d50>', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2020-10-09 06:08:39 +0000''>', entitlements='{
+    "application-identifier" = "W4U8P239UX.cc.actvets.SORS";
+    "com.apple.developer.team-identifier" = W4U8P239UX;
+    "get-task-allow" = 1;
+    "keychain-access-groups" =     (
+        "W4U8P239UX.cc.actvets.SORS"
+    );
+}', teamID='W4U8P239UX', identifier='cc.actvets.SORS', executablePath='<DVTFilePath:0x7fdc3d4f44d0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app/SORS'>', hardenedRuntime='0'>'>: {
+    "application-identifier" = "W4U8P239UX.cc.actvets.SORS";
+    "beta-reports-active" = 1;
+    "com.apple.developer.team-identifier" = W4U8P239UX;
+    "get-task-allow" = 0;
+    "keychain-access-groups" =     (
+        "W4U8P239UX.cc.actvets.SORS"
+    );
+}
+2021-02-11 00:45:45 +0000  Entitlements for <IDEDistributionItem: 0x7fdc3e3b28c0; bundleID='cc.actvets.SORS', path='<DVTFilePath:0x7fdc3d4c82f0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x7fdc3d1d5850; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x7fdc401d9180; name='Apple Development: imcvay@grapevine.com.au (VH9983N8H2)', hash='D272B3A47D5FC5D5C50ED4A45A4C750E8C8DBF06', serialNumber='<DVTSigningCertificateSerialNumber: 0x7fdc3d650d50>', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2020-10-09 06:08:39 +0000''>', entitlements='{
+    "application-identifier" = "W4U8P239UX.cc.actvets.SORS";
+    "com.apple.developer.team-identifier" = W4U8P239UX;
+    "get-task-allow" = 1;
+    "keychain-access-groups" =     (
+        "W4U8P239UX.cc.actvets.SORS"
+    );
+}', teamID='W4U8P239UX', identifier='cc.actvets.SORS', executablePath='<DVTFilePath:0x7fdc3d4f44d0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app/SORS'>', hardenedRuntime='0'>'> are: {
+    "application-identifier" = "W4U8P239UX.cc.actvets.SORS";
+    "beta-reports-active" = 1;
+    "com.apple.developer.team-identifier" = W4U8P239UX;
+    "get-task-allow" = 0;
+    "keychain-access-groups" =     (
+        "W4U8P239UX.cc.actvets.SORS"
+    );
+}
+2021-02-11 00:45:45 +0000  Writing entitlements for <IDEDistributionItem: 0x7fdc3e3b28c0; bundleID='cc.actvets.SORS', path='<DVTFilePath:0x7fdc3d4c82f0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x7fdc3d1d5850; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x7fdc401f11c0; name='Apple Development: imcvay@grapevine.com.au (VH9983N8H2)', hash='D272B3A47D5FC5D5C50ED4A45A4C750E8C8DBF06', serialNumber='<DVTSigningCertificateSerialNumber: 0x7fdc3d685670>', certificateKinds='(
+    "1.2.840.113635.100.6.1.12",
+    "1.2.840.113635.100.6.1.2"
+), issueDate='2020-10-09 06:08:39 +0000''>', entitlements='{
+    "application-identifier" = "W4U8P239UX.cc.actvets.SORS";
+    "com.apple.developer.team-identifier" = W4U8P239UX;
+    "get-task-allow" = 1;
+    "keychain-access-groups" =     (
+        "W4U8P239UX.cc.actvets.SORS"
+    );
+}', teamID='W4U8P239UX', identifier='cc.actvets.SORS', executablePath='<DVTFilePath:0x7fdc3d4f44d0:'/Users/Kevin/Library/Developer/Xcode/Archives/2021-02-11/SORS 11-2-21, 11.05 am.xcarchive/Products/Applications/SORS.app/SORS'>', hardenedRuntime='0'>'> to: /var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/entitlements~~~694Jcu
+2021-02-11 00:45:45 +0000  Running /usr/bin/codesign '-vvv' '--force' '--sign' 'A669140DC76B8F05FE0D6F1D2B2894C92A38E196' '--entitlements' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/entitlements~~~694Jcu' '--preserve-metadata=identifier,flags,runtime' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app'
+2021-02-11 00:45:50 +0000  /var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app: signed app bundle with Mach-O thin (arm64) [cc.actvets.SORS]
+2021-02-11 00:45:50 +0000  
+2021-02-11 00:45:50 +0000  /usr/bin/codesign exited with 0
+2021-02-11 00:45:50 +0000  Processing step: IDEDistributionZipODRItemStep
+2021-02-11 00:45:50 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2021-02-11 00:45:50 +0000  Processing step: IDEDistributionCreateIPAStep
+2021-02-11 00:45:50 +0000  Running /usr/bin/ditto '-V' '-c' '-k' '--norsrc' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root' '/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Packages/SORS.ipa'
+2021-02-11 00:45:50 +0000  >>> Copying /var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root 
+2021-02-11 00:45:50 +0000  copying file ./BCSymbolMaps/1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap ... 
+2021-02-11 00:45:50 +0000  1202818 bytes for ./BCSymbolMaps/1CFF7869-2BF7-3FF8-B7F2-153A54208417.bcsymbolmap
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/_CodeSignature/CodeResources ... 
+2021-02-11 00:45:50 +0000  2775 bytes for ./Payload/SORS.app/_CodeSignature/CodeResources
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/SORS ... 
+2021-02-11 00:45:50 +0000  3033712 bytes for ./Payload/SORS.app/SORS
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/AppIcon60x60@2x.png ... 
+2021-02-11 00:45:50 +0000  15492 bytes for ./Payload/SORS.app/AppIcon60x60@2x.png
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/Assets.car ... 
+2021-02-11 00:45:50 +0000  605864 bytes for ./Payload/SORS.app/Assets.car
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/AppIcon76x76@2x~ipad.png ... 
+2021-02-11 00:45:50 +0000  20390 bytes for ./Payload/SORS.app/AppIcon76x76@2x~ipad.png
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/embedded.mobileprovision ... 
+2021-02-11 00:45:50 +0000  7394 bytes for ./Payload/SORS.app/embedded.mobileprovision
+2021-02-11 00:45:50 +0000  copying file ./Payload/SORS.app/Info.plist ... 
+2021-02-11 00:45:50 +0000  1525 bytes for ./Payload/SORS.app/Info.plist
+copying file ./Payload/SORS.app/PkgInfo ... 
+2021-02-11 00:45:50 +0000  8 bytes for ./Payload/SORS.app/PkgInfo
+2021-02-11 00:45:50 +0000  /usr/bin/ditto exited with 0
+2021-02-11 00:45:50 +0000  Processing step: IDEDistributionAppStoreInformationStep
+2021-02-11 00:45:50 +0000  Skipping step: IDEDistributionAppStoreInformationStep because it said so
+2021-02-11 00:45:50 +0000  Processing step: IDEDistributionGenerateProcessedDistributionItems
+2021-02-11 00:45:50 +0000  IDEDistributionItem init <DVTFilePath:0x7fdc3d64f870:'/var/folders/tw/q49ry65n47vc6ybt_6h3_f1m0000gn/T/XcodeDistPipeline.~~~t2ytDZ/Root/Payload/SORS.app'>
+2021-02-11 00:45:50 +0000  Processing step: IDEDistributionCreateManifestStep
+2021-02-11 00:45:50 +0000  Skipping step: IDEDistributionCreateManifestStep because it said so

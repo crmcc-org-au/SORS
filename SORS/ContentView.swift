@@ -43,6 +43,8 @@ struct Config: Codable  {
     var stages:[Stage]  = [Stage(), Stage()]   // min of two stages
     var currentStage = 0   // 0 based array
     var hcpScratch: Bool = false   // true for fastest grade being set at 0:00 else slowest grade has 0:00
+    var RMSurl: String = "https://rms.crmcc.org.au"  // URL to make web service calls to
+    var loadDate: String = ""   // date time riders were loaded from  RMS
 }
 
 struct Rider: Codable {
@@ -112,14 +114,14 @@ struct Handicap: Codable  {
 
 // VARIABLES
 
-let rms = "https://rms.actvets.cc"  // URL to make web service calls to
+//let rms = "https://rms.crmcc.org.au"  // URL to make web service calls to
 // These values are used by RMS
 let directorGrade = "REFEREE"
 let marshalGrade = "MARSHAL"
 let genders = ["M","F"]
 let grades = ["A","B","C","D","E","F","G"]
 let subgrades = ["-","1","2"]  // set no subgrade to '-' so options are visible in the picker
-let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  1st 2 used for stage races
+let raceTypes = ["Graded", "TT", "Crit", "Hcp", "Secret", "Age", "Age Std", "Wheel"]  // code actions use these raceTypes values.  DO NOT CHANGE ORDER - 1st 3 used for stage races
 let unknownGrade = 999
 let buttonSound = 1057
 
@@ -134,6 +136,8 @@ var myConfig: Config = Config() {      // config for system
         }
     }
 
+let gradePickerWidth = 65.0          // width of picker for grades
+let riderNumberSelWidth = 75.0       // width of picker for rider numbers
 let fullListHeight = 465.0
 let handicapsListHeight = 560.0
 let keypadHeight = 240.0
@@ -162,7 +166,7 @@ var arrayRiders = [[String: Any]]() // list of riders loaded from RMS
 var arrayNames: [String] = []       // list of rider names
 var arrayRaces = [[String: Any]]()  // list of race dates
 var unplacedRiders: [String] = []   // list of race numbers of riders yet to be placed
-//var unplacedSpots: [String] = []    // list of recorded finish times yet to be assigned against a rider
+//var unplacedSpots: [String] = []  // list of recorded finish times yet to be assigned against a rider
 var startingGrades: [String] = []   // list of grades with riders in them
 var missingHandicaps = ""           // used for error message
 var bonuses: [StageBonus] = []
@@ -190,7 +194,7 @@ didSet {
         }
     }
 }
-var startingHandicaps: [Handicap] = []   // handicaps for grades that have starters
+var startingHandicaps: [Handicap] = []  // handicaps for grades that have starters
 var orderedHandicaps: [Handicap] = []   // handicaps in starting order slowest grade first
 
 var unstartedGrades = [String]() {  // list of grades yet to start
@@ -307,6 +311,21 @@ func resetRiders() {
     }
 }
 
+func resetRace() {
+    // Reset things required for a new race
+    unplacedRiders = []
+    startedGrades = []
+    finishTimes = []
+    reset = true
+    running = false
+    raceStarted = false
+    recordDisabled = true
+    arrayStarters = []
+    handicaps = []
+    checkHandicaps()
+    setStartingGrades()
+}
+
 func riderCount() -> Int {
     var count = 0
     for rider in arrayStarters.indices {
@@ -322,6 +341,22 @@ func officalCount() -> Int {
     for rider in arrayStarters.indices {
         if arrayStarters[rider].racegrade == marshalGrade || arrayStarters[rider].racegrade == directorGrade {
             count =  count + 1
+        }
+    }
+    return count
+}
+
+func placedRiderCount() -> Int {
+    var count = 0
+    for rider in arrayStarters.indices {
+        if myConfig.stage {
+            if arrayStarters[rider].stageResults[myConfig.currentStage].overTheLine != "" {
+                count = count + 1
+            }
+        } else {
+            if arrayStarters[rider].overTheLine != "" {
+                count = count + 1
+            }
         }
     }
     return count
@@ -395,7 +430,7 @@ func getUnplaced(grade: Int = -1)  {
 }
 
 func getRiders(grade: Int = 0) -> [String] {
-    // gets the started riders in selected grade
+    // gets the starting riders in selected grade
     var riders:[String] = []
     for rider in arrayStarters.indices {
         if arrayStarters[rider].racegrade == startingGrades[grade] {
@@ -452,9 +487,8 @@ func loadRiders() {
         let riders = try Data(contentsOf: url)
         let JSON = try! JSONSerialization.jsonObject(with: riders, options: [])
         arrayRiders = JSON as! [[String: Any]]
-        msg = String(arrayRiders.count) + " Riders loaded from RMS."
+        msg = String(arrayRiders.count) + " Riders loaded from RMS at " + myConfig.loadDate
     } catch {
-//        print(error.localizedDescription)
         msg = "No riders loaded from RMS."
     }
 }
@@ -468,14 +502,16 @@ func loadNames() {
 }
 
 func loadRaces() {
+    var errorData : [String : Any]
+    errorData = ["":""]
     // load the recent and near future races from RMS - need past races in case we are doing results post race
-    let url = URL(string: rms + "/?closeEvents")!
+    let url = URL(string: myConfig.RMSurl + "/?closeEvents")!
 
     let task = URLSession.shared.dataTask(with: url) {(data, response, error) in
         guard let httpResponse = response as? HTTPURLResponse,
                 (200...299).contains(httpResponse.statusCode) else {
-                //result = response
-                //self.handleServerError(response)
+                errorData = ["displaydate": (error?.localizedDescription ?? "")]
+                arrayRaces = [errorData]
                 return
             }
         guard let data = data else {
@@ -532,7 +568,15 @@ func writeRiders(riders: Data) {
     let url = getDocumentsDirectory().appendingPathComponent("riders.txt")
     do {
         try riders.write(to: url) //, atomically: true, encoding: .utf8)
-        msg = "Riders written to storage file"
+        if #available(iOS 15, *) {
+            let today = Date.now
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm E, d MMM y"
+            myConfig.loadDate = formatter.string(from: today)
+        } else {
+            myConfig.loadDate = "unknown date"
+        }
+        msg = "Riders written to storage file at " + myConfig.loadDate
     } catch {
         msg = "Riders not written to storage file: " + error.localizedDescription
     }
@@ -793,6 +837,7 @@ struct ContentView: View {
     struct SettingsView: View {
         @State var result = ""
         @State var TTStartIntervalString = String(myConfig.TTStartInterval)
+        @State var RMSurl = String(myConfig.RMSurl)
         @ObservedObject var bleManager = BLEManager()
         @ObservedObject var blePeripheral = BLEPeripheral()
         @State var scanText = ""
@@ -804,12 +849,18 @@ struct ContentView: View {
 //            set:{myConfig.master = $0}
 //        )
         
+        @ObservedObject var stopWatchManager: StopWatchManager
+        
         func checkNumb(_ value: String) {
             let filtered = TTStartIntervalString.filter { $0.isNumber}
             if TTStartIntervalString != filtered {
                 TTStartIntervalString = filtered
             }
             myConfig.TTStartInterval = Int(TTStartIntervalString) ?? 30
+        }
+        
+        func setURL(_ value: String) {
+            myConfig.RMSurl = RMSurl
         }
         
         private func endEditing() {
@@ -819,6 +870,8 @@ struct ContentView: View {
         var body: some View {
             Background {
             VStack {
+                
+                
                 Toggle(isOn: $master) {
                     Text("Timer")
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -991,22 +1044,24 @@ struct ContentView: View {
                     .frame(width: 50.0)
                     .keyboardType(.numberPad)
                     .onChange(of: TTStartIntervalString, perform: checkNumb)
-                    .padding()
+                    //.padding()
                     .foregroundColor(Color.blue)
+                }
+                HStack {
+                    // URL for Rider Management System (RMS)
+                    Text("RMS url: ")
+                    TextField("", text: $RMSurl)
+                    //.font(Font.system(size: 60, design: .default))
+                        .frame(width: 200.0)
+                        .keyboardType(.URL)
+                        .onChange(of: RMSurl, perform: setURL)
+                        //.padding()
+                        .foregroundColor(Color.blue)
                 }
                 HStack {
                 // Reset button
                 Button(action: {
-                    // Reset things required for a new race
-                    unplacedRiders = []
-                    startedGrades = []
-                    finishTimes = []
-                    reset = true
-                    running = false
-                    raceStarted = false
-                    recordDisabled = true
-                    resetRiders()
-                    handicaps = []
+                    resetRace()
                     
                     // Reset everything for testing
 //                    myConfig.raceType = 0
@@ -1042,8 +1097,6 @@ struct ContentView: View {
 //                    }
 //                    unplacedRiders = ["4","40","402"]
                     
-                    checkHandicaps()
-                    setStartingGrades()
                     result = "Reset done"
                 }) {
                     Text("Reset")
@@ -1062,6 +1115,7 @@ struct ContentView: View {
                         startedGrades = []
                         finishTimes = []
                         running = false
+                        stopWatchManager.reset()
                         raceStarted = false
                         recordDisabled = true
                         resetRiders()
@@ -1113,6 +1167,7 @@ struct ContentView: View {
         @State var currentStageTxt = "1"
         @State var currentStage = 0
         @State var stage = false
+        @State var resultColor = Color.black
         
         let bind = Binding<Bool>(
             get:{myConfig.championship},
@@ -1217,12 +1272,14 @@ struct ContentView: View {
         var body: some View {
             Background {
             VStack {
+                Text("Changing settings will reset race.")
                 HStack {
                     Text("Race")
                     Picker(selection: Binding(
                             get: {self.selectedRace},
                             set: {self.selectedRace = $0
                                 if arrayRaces.count > 0 {
+                                    resetRace()
                                     myConfig.raceDate = arrayRaces[$0]["displaydate"] as! String
                                 } else {
                                     myConfig.raceDate = "No race dates loaded"
@@ -1246,6 +1303,7 @@ struct ContentView: View {
                     .frame(width:120) //, alignment: .center)
 //                    .padding()
                     .onChange(of: stage) {
+                        resetRace()
                         myConfig.stage = $0
                     }
                     if stage {
@@ -1298,14 +1356,12 @@ struct ContentView: View {
                                 myConfig.stages = self.stages
                             }),
                             label : Text("")){
-                            ForEach(0 ..< raceTypes.count, id:\.self) {
+                            ForEach(0 ..< 3, id:\.self) {
                                 // for stage races only have crit, graded and TT
-                                if !myConfig.stage || $0 < 2 {
-                                    Text(raceTypes[$0])
-                                }
+                                Text(raceTypes[$0])
                             }
                         }
-                        .frame(width: 80)
+                        .frame(width: 120)
                         .clipped()
 //                        .pickerStyle(SegmentedPickerStyle())
                         
@@ -1326,6 +1382,7 @@ struct ContentView: View {
                         Picker(selection: Binding(
                                 get: {self.selectedRaceType},
                                 set: {self.selectedRaceType = $0
+                                    resetRace()
                                     myConfig.raceType = $0
                                 }),
                                 label : Text("")){
@@ -1363,37 +1420,37 @@ struct ContentView: View {
                 // Update button
                 Button(action: {
                     result = "Updating entries ..."
-                    let url = URL(string: rms + "/?racingMembers")!
+                    let url = URL(string: myConfig.RMSurl + "/?racingMembers")!
 
                     let task = URLSession.shared.dataTask(with: url) {(data, response, error) in
                         guard let httpResponse = response as? HTTPURLResponse,
                                 (200...299).contains(httpResponse.statusCode) else {
-                                //result = response
-                                //self.handleServerError(response)
-                                result = "Update entries failed."
+                                result = "Update entries failed. " + (error?.localizedDescription ?? "")
+                                resultColor = Color.red
                                 return
                             }
                         guard let data = data else {
                             result = "No race entries received from RMS"
+                            resultColor = Color.red
                             return
                         }
                         writeRiders(riders: data)
                         let JSON = try! JSONSerialization.jsonObject(with: data, options: [])
                         arrayRiders = JSON as! [[String: Any]]
                         // clear persisted starters
-                        defaults.set([], forKey: "Starters")
+                        defaults.set([String](), forKey: "Starters")
                         result = ""
                         
                         if arrayRaces.count > 0 {
                             let raceid = arrayRaces[selectedRace]["id"] as! String
                             
                             // load any new pre entries
-                            let perentryURL = URL(string: rms + "/?eventEntries=" + raceid)!
+                            let perentryURL = URL(string: myConfig.RMSurl + "/?eventEntries=" + raceid)!
                             let preTask = URLSession.shared.dataTask(with: perentryURL) {(data, response, error) in
                                 guard let httpResponse = response as? HTTPURLResponse,
                                         (200...299).contains(httpResponse.statusCode) else {
-                                        //result = response
-                                        //self.handleServerError(response)
+                                        result = "Loading entries failed: " + (error?.localizedDescription ?? "")
+                                        resultColor = Color.red
                                         return
                                     }
                                 guard let data = data else {
@@ -1432,11 +1489,12 @@ struct ContentView: View {
                                         if raceTypes[myConfig.raceType] == "Age" ||
                                             (raceTypes[myConfig.raceType] == "Crit" && myConfig.championship) {
                                             var ageClass = 0
-                                            if newRider.gender == "M" {
+                                            // Women's age classes changed to 5yrs
+//                                            if newRider.gender == "M" {
                                                 ageClass = ((newRider.age - 30 ) / 5 ) + 1
-                                            } else {
-                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
-                                            }
+//                                            } else {
+//                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
+//                                            }
                                             newRider.racegrade = newRider.gender + "\(ageClass)"
                                         } else {
                                             // set the race grade
@@ -1445,6 +1503,7 @@ struct ContentView: View {
                                                 newRider.subgrade = String(pre["subgrade"] as? Int ?? 1) 
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
+                                                resultColor = Color.red
                                             }
                                         }
                                         // register the rider
@@ -1456,6 +1515,7 @@ struct ContentView: View {
                                 checkHandicaps()
                                 setStartingGrades()
                                 result = result + String(newPreentries) + " new entries."
+                                resultColor = Color.black
                             }
                             preTask.resume()
                         }
@@ -1474,28 +1534,29 @@ struct ContentView: View {
                 // Load button
                 Button(action: {
                     result = "Loading members ..."
-                    let url = URL(string: rms + "/?racingMembers")!
+                    let url = URL(string: myConfig.RMSurl + "/?racingMembers")!
 
                     let task = URLSession.shared.dataTask(with: url) {(data, response, error) in
                         guard let httpResponse = response as? HTTPURLResponse,
                                 (200...299).contains(httpResponse.statusCode) else {
-                                //result = response
-                                //self.handleServerError(response)
-                                result = "Load failed."
+                                result = "Load members failed: " + (error?.localizedDescription ?? "")
+                                resultColor = Color.red
                                 return
                             }
                         guard let data = data else {
                             result = "No members received from RMS"
+                            resultColor = Color.red
                             return
                         }
                         writeRiders(riders: data)
                         let JSON = try! JSONSerialization.jsonObject(with: data, options: [])
                         arrayRiders = JSON as! [[String: Any]]
                         result = String(arrayRiders.count) + " riders loaded. "
+                        resultColor = Color.black
                         
                         arrayStarters = []
                         // clear persisted starters
-                        defaults.set([], forKey: "Starters")
+                        defaults.set([String](), forKey: "Starters")
                         
                         if arrayRaces.count > 0 {
                             let raceid = arrayRaces[selectedRace]["id"] as! String
@@ -1503,12 +1564,12 @@ struct ContentView: View {
                                 // ie don't reload race officals
                                 
                                 // load marshals
-                                let marshalURL = URL(string: rms + "/?marshals=" + raceid)!
+                                let marshalURL = URL(string: myConfig.RMSurl + "/?marshals=" + raceid)!
                                 let nextTask = URLSession.shared.dataTask(with: marshalURL) {(data, response, error) in
                                     guard let httpResponse = response as? HTTPURLResponse,
                                             (200...299).contains(httpResponse.statusCode) else {
-                                            //result = response
-                                            //self.handleServerError(response)
+                                            result = "Load marshals failed: " + (error?.localizedDescription ?? "")
+                                            resultColor = Color.red
                                             return
                                         }
                                     guard let data = data else {
@@ -1530,12 +1591,12 @@ struct ContentView: View {
                                 }
                                 nextTask.resume()
                                 // load director
-                                let directorURL = URL(string: rms + "/?director=" + raceid)!
+                                let directorURL = URL(string: myConfig.RMSurl + "/?director=" + raceid)!
                                 let directorTask = URLSession.shared.dataTask(with: directorURL) {(data, response, error) in
                                     guard let httpResponse = response as? HTTPURLResponse,
                                             (200...299).contains(httpResponse.statusCode) else {
-                                            //result = response
-                                            //self.handleServerError(response)
+                                            result = "Load director failed. " + (error?.localizedDescription ?? "")
+                                            resultColor = Color.red
                                             return
                                         }
                                     guard let data = data else {
@@ -1559,12 +1620,12 @@ struct ContentView: View {
                             }
 
                             // load any new pre entries
-                            let perentryURL = URL(string: rms + "/?eventEntries=" + raceid)!
+                            let perentryURL = URL(string: myConfig.RMSurl + "/?eventEntries=" + raceid)!
                             let preTask = URLSession.shared.dataTask(with: perentryURL) {(data, response, error) in
                                 guard let httpResponse = response as? HTTPURLResponse,
                                         (200...299).contains(httpResponse.statusCode) else {
-                                        //result = response
-                                        //self.handleServerError(response)
+                                        result = "Load entries failed. " + (error?.localizedDescription ?? "")
+                                        resultColor = Color.red
                                         return
                                     }
                                 guard let data = data else {
@@ -1584,7 +1645,7 @@ struct ContentView: View {
                                             // don't enter riders without race numbers
                                             continue
                                         }
-                                        newRider.gender = pre["gender"] as! String
+                                        newRider.gender = pre["gender"] as? String ?? " "
                                         let now = Calendar.current.dateComponents([.year, .month, .day], from: Date())
                                         let yob = Int((pre["dateofbirth"]  as? String ?? " ").prefix(4)) ?? 0
                                         newRider.age = (now.year ?? 0) - yob
@@ -1603,11 +1664,12 @@ struct ContentView: View {
                                         if raceTypes[myConfig.raceType] == "Age" ||
                                             (raceTypes[myConfig.raceType] == "Crit" && myConfig.championship) {
                                             var ageClass = 0
-                                            if newRider.gender == "M" {
+                                            // Women's age classes changed to 5yrs
+//                                            if newRider.gender == "M" {
                                                 ageClass = ((newRider.age - 30 ) / 5 ) + 1
-                                            } else {
-                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
-                                            }
+//                                            } else {
+//                                                ageClass = ((newRider.age - 30 ) / 10 ) + 1
+//                                            }
                                             newRider.racegrade = newRider.gender + "\(ageClass)"
                                         } else {
                                             // set the race grade
@@ -1621,6 +1683,7 @@ struct ContentView: View {
                                                 }
                                             } else {
                                                 result = "Rider " + newRider.racenumber + " not graded. "
+                                                resultColor = Color.red
                                             }
                                         }
                                         // register the rider
@@ -1632,6 +1695,7 @@ struct ContentView: View {
                                 checkHandicaps()
                                 setStartingGrades()
                                 result = result + String(newPreentries) + " new preentries."
+                                resultColor = Color.black
                             }
                             preTask.resume()
                         }
@@ -1643,14 +1707,16 @@ struct ContentView: View {
                         .padding()
                         .foregroundColor(.black)
                     }
+                    .disabled(running)
                     .frame(width: 100, height: 80, alignment: .leading)
-                    .background(arrayStarters.count > 0 ? Color.orange : Color.green)
+                    .background(arrayStarters.count > 0 ? (running ? Color.gray : Color.orange) : Color.green)
                     .cornerRadius(10)
                     
                 }  // HStack
                     
                 Text(result)
                     .padding(.bottom, 100)
+                    .foregroundColor(resultColor)
 //                Spacer()
                 .navigationBarTitle("Load", displayMode: .inline)
             }
@@ -1932,8 +1998,8 @@ struct ContentView: View {
         @State private var selectedGrade = 0
         @State private var selectedSubGrade = 0
         @State var displayHandicaps = handicaps
-        @ObservedObject var sec = Time(limit: 2)
-        @ObservedObject var min = Time(limit: 2)
+        @State var sec = Time(limit: 2)
+        @State var min = Time(limit: 2)
         @State var HCmsg = ""
         @State var HCmsgColor = Color.black
         @State var mode: EditMode = .inactive
@@ -2324,11 +2390,12 @@ struct ContentView: View {
 //                                    let age = (now.year ?? 0) - yob
                                     // get the age class
                                     var ageClass = 0
-                                    if selectedRider.gender == "M" {
+                                    // Women's age classes changed to 5yrs
+//                                    if selectedRider.gender == "M" {
                                         ageClass = ((selectedRider.age - 30 ) / 5 ) + 1
-                                    } else {
-                                        ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
-                                    }
+//                                    } else {
+//                                        ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
+//                                    }
                                     riderDetails = String(numb) + " - " + selectedRider.name + "  Age Class: " + selectedRider.gender + String(ageClass)
                                 case "Age Std":
                                     riderDetails = String(numb) + " - " + selectedRider.name + "  Age: " + String(selectedRider.age)
@@ -2344,11 +2411,12 @@ struct ContentView: View {
                                 case "Crit", "Wheel":
                                     if myConfig.championship {
                                         var ageClass = 0
-                                        if selectedRider.gender == "M" {
+                                        // Women's age classes changed to 5yrs
+//                                        if selectedRider.gender == "M" {
                                             ageClass = ((selectedRider.age - 30 ) / 5 ) + 1
-                                        } else {
-                                            ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
-                                        }
+//                                        } else {
+//                                            ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
+//                                        }
                                         riderDetails = String(numb) + " - " + selectedRider.name + "  Age Class: " + selectedRider.gender + String(ageClass)
                                     } else {
                                         riderDetails = String(numb) + " - " + selectedRider.name + " Crit: " + criteriumgrade
@@ -2402,7 +2470,7 @@ struct ContentView: View {
                                         //.font(Font.system(size: 60, design: .default))
                                 }
                             }
-                            .frame(width: 50)
+                            .frame(width: gradePickerWidth)
                             .clipped()
                             if raceTypes[myConfig.raceType] != "Crit" {
                                 Text("Sub")
@@ -2442,11 +2510,12 @@ struct ContentView: View {
                         case "Crit":
                             if myConfig.championship {
                                 var ageClass = 0
-                                if selectedRider.gender == "M" {
+                                // Women's age classes changed to 5yrs
+//                                if selectedRider.gender == "M" {
                                     ageClass = ((selectedRider.age - 30 ) / 5 ) + 1
-                                } else {
-                                    ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
-                                }
+//                                } else {
+//                                    ageClass = ((selectedRider.age - 30 ) / 10 ) + 1
+//                                }
                                 selectedRider.racegrade = selectedRider.gender + String(ageClass)
                             } else {
                                 selectedRider.racegrade = grades[selectedGrade]
@@ -2499,7 +2568,7 @@ struct ContentView: View {
                     if raceTypes[myConfig.raceType] != "Age" && raceTypes[myConfig.raceType] != "Age Std" && !myConfig.championship {
                     // Regrade button
                         Button(action: {
-                            var subgrade = ""
+                            var subgrade = subgrades[selectedSubGrade]
                             if subgrades[selectedSubGrade] == "-" {
                                 subgrade = ""
                             }
@@ -2509,12 +2578,13 @@ struct ContentView: View {
                                 return
                             }
                             if arrayStarters[starterId].racegrade == grades[selectedGrade] + subgrade {
-                                riderDetails = "Rider already in " + grades[selectedGrade]
+                                riderDetails = "Rider already in " + grades[selectedGrade] + subgrade
                                 return
                             }
                             // set the race grade
                             if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Graded" || raceTypes[myConfig.raceType] == "Wheel" {
-                                arrayStarters[starterId].racegrade = grades[selectedGrade] + subgrade
+                                arrayStarters[starterId].racegrade = grades[selectedGrade]
+                                arrayStarters[starterId].subgrade = subgrade
                             } else {
                                 arrayStarters[starterId].racegrade = grades[selectedGrade]
                             }
@@ -2592,7 +2662,7 @@ struct ContentView: View {
                                 //.font(Font.system(size: 60, design: .default))
                             }
                         }
-                        .frame(width: 50)
+                        .frame(width: gradePickerWidth)
                         .clipped()
                         .padding(.top, 50)
                         if raceTypes[myConfig.raceType] != "Crit" {
@@ -2753,7 +2823,7 @@ struct ContentView: View {
         @State var mode: EditMode = .inactive
         
         func setStarts() {
-            // sert the starts array used for dynamic updating of the view
+            // set the starts array used for dynamic updating of the view
             if raceTypes[myConfig.raceType] == "Age Std" {
                 starts = arrayStarters.filter {$0.racegrade != directorGrade && $0.racegrade != marshalGrade}
                 starts.sort {$0.age < $1.age}
@@ -2789,6 +2859,10 @@ struct ContentView: View {
                 }
             }
             if raceTypes[myConfig.raceType] != "Age Std" && raceTypes[myConfig.raceType] != "TT" && startingGrades.count > 0 {
+                // check if the deleting of riders has reached the last grade
+                if selectedGrade > startingGrades.count - 1 {
+                    selectedGrade = 0
+                }
                 starts = arrayStarters.filter {$0.racegrade == startingGrades[selectedGrade]}
                 // sort by name
                 starts.sort {$0.name.localizedStandardCompare($1.name) == .orderedAscending}
@@ -2838,7 +2912,7 @@ struct ContentView: View {
                     }
                 }
                 .id(UUID())
-                .frame(width: 50)
+                .frame(width: gradePickerWidth)
                 .clipped()
 //                // Add picker for subgrade 1,2
 //                if raceTypes[raceType] != "Crit" {
@@ -2982,7 +3056,7 @@ struct ContentView: View {
             finishTimes.sort {return $0.overTheLine < $1.overTheLine}
             displayPlaces = finishTimes
 //            unplacedSpots.append(newTime.displayTime)
-            TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+            TimingMsg = String(finishTimes.count) + " Recorded. " + String(max((riderCount() - DNFcount() - finishTimes.count), 0)) + " to finish"
             TimingMsgColor = Color.black
         }
 
@@ -3009,7 +3083,7 @@ struct ContentView: View {
                 displayPlaces = finishTimes
             }
             overTheLine =  overTheLine - 1
-            TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+            TimingMsg = String(finishTimes.count) + " Recorded. " + String(max((riderCount() - DNFcount() - finishTimes.count), 0)) + " to finish"
             TimingMsgColor = Color.black
         }
         
@@ -3145,6 +3219,14 @@ struct ContentView: View {
                                 startDisabled = true
                                 recordDisabled = false
         //                        stopDisabled = false
+                                // set the start times for all riders based on handicaps
+                                for i in 0...(arrayStarters.count - 1) {
+                                    for hcp in 0...(orderedHandicaps.count - 1) {
+                                        if arrayStarters[i].racegrade == orderedHandicaps[hcp].racegrade {
+                                            arrayStarters[i].startTime = Date() + TimeInterval(orderedHandicaps[hcp].time)
+                                        }
+                                    }
+                                }
                             case "Secret":
                                 // Just started everyone at once
                                 startDisabled = true
@@ -3194,12 +3276,10 @@ struct ContentView: View {
                             AudioServicesPlaySystemSound(SystemSoundID(buttonSound))
                             overTheLine = finishTimes.count + 1
                             getUnplaced(grade: -1)
-                            TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
-                            TimingMsgColor = Color.black
                             // record a finish time
                             newTime.id = UUID()
                             newTime.overTheLine = overTheLine
-                            newTime.time = Date() //stopWatchManager.counter
+                            newTime.time = Date()  // increase by an hour  + 60*60
                             let formatter = DateFormatter()
                             formatter.timeStyle = .medium
                             newTime.displayTime = String(format: "%03d", overTheLine) + " - \n" +
@@ -3207,6 +3287,8 @@ struct ContentView: View {
                             finishTimes.append(newTime)
                             displayPlaces = finishTimes
     //                        unplacedSpots.append(newTime.displayTime)
+                            TimingMsg = String(finishTimes.count) + " Recorded. " + String(max((riderCount() - DNFcount() - finishTimes.count), 0)) + " to finish"
+                            TimingMsgColor = Color.black
                         }) {
                             Text("Record")
                                 .padding()
@@ -3334,14 +3416,20 @@ struct ContentView: View {
                 }
                 
                 .onAppear(perform: {  // of Timing
+                    let date = UserDefaults.standard.object(forKey: "startDateTime") as! Date?
+                    
                     if reset {
                         stopWatchManager.reset()
                         reset = false  // reset done
                     }
                     if running {
                         dateformatter.dateFormat = "HH:mm:ss"
-                        let date = UserDefaults.standard.object(forKey: "startDateTime") as! Date?
-                        TimingMsg = "Race Started at " + dateformatter.string(from: date!)
+                        // startDateTime is set by the StopWatchManager  it may not be set if SORS is restarted
+                        if date == nil {
+                            TimingMsg = "Race Started"
+                        } else {
+                            TimingMsg = "Race Started at " + dateformatter.string(from: date!)
+                        }
                         TimingMsgColor = Color.black
                     }
                     checkHandicaps()
@@ -3377,20 +3465,33 @@ struct ContentView: View {
                             startDisabled = true
                             TimingMsg = "No riders to start"
                             TimingMsgColor = Color.black
-                        } else if stopWatchManager.stopped {
-                            // all grades started
-                            running = false
-                            startDisabled = true
-                            TimingMsg = "All grades started"
-                            TimingMsgColor = Color.black
+                        } else if stopWatchManager.stopped || running || placedRiderCount() > 0 {
+                            // check if all grades have been started
+                            let maxHcps = handicaps.count - 1
+                            let gradesStartTime =  TimeInterval(handicaps[maxHcps].time)
+                            let endGradeStarts = date! + gradesStartTime
+                            //var a = Date()   // debugging
+                            if endGradeStarts > Date() {
+                                startDisabled = true
+                                recordDisabled = true // checks are on button for handicaps still to start
+                                // resume the StopWatchManager
+                                stopWatchManager.loadStarts(handicaps: startingHandicaps)
+                                stopWatchManager.resume()
+                                TimingMsg = " Grades are still starting "
+                                TimingMsgColor = Color.black
+                            } else {
+                                // all grades started
+                                raceStarted = true
+                                startDisabled = true
+                                recordDisabled = false // checks are on button for handicaps still to start
+                                TimingMsg = String(finishTimes.count) + " Recorded. " + String(max((riderCount() - DNFcount() - finishTimes.count), 0)) + " to finish"
+                                TimingMsgColor = Color.black
+                            }
                         } else {
                             // load the handicaps into the stopWatchManager
                             // only loads the handicaps that have riders in the handicapped grade
                             stopWatchManager.loadStarts(handicaps: startingHandicaps)
                             startDisabled = false
-                            if running {
-                                recordDisabled = false // checks are on button for handicaps still to start
-                            }
                             TimingMsg = String(startingHandicaps.count) + " starting Grades"
                             TimingMsgColor = Color.black
                         }
@@ -3448,7 +3549,7 @@ struct ContentView: View {
                             }
                         }
                     case "Age Std":
-                        TimingMsg = String(overTheLine) + " Recorded. " + String(max((unplacedRiders.count - overTheLine), 0)) + " to finish"
+                        TimingMsg = String(finishTimes.count) + " Recorded. " + String(max((riderCount() - DNFcount() - finishTimes.count), 0)) + " to finish"
                         TimingMsgColor = Color.black
                         if peripheralPaired {
                             if stopWatchManager.started {
@@ -4176,7 +4277,7 @@ struct ContentView: View {
                                     }
                                 }
                                 .id(UUID())
-                                .frame(width: 50)
+                                .frame(width: 80)
                                 .clipped()
                             }
                             
@@ -4186,7 +4287,7 @@ struct ContentView: View {
                                 }
                             }
                             .id(UUID())
-                            .frame(width: 60)
+                            .frame(width: riderNumberSelWidth)
                             .clipped()
                         }
                         .padding(.top, 10)
@@ -4304,7 +4405,11 @@ struct ContentView: View {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
                                         riderDetails = arrayStarters[index].overTheLine
                                         arrayStarters[index].finishTime = t.time
-                                        arrayStarters[index].raceTime = t.time!.timeIntervalSince(arrayStarters[index].startTime!)
+                                        if arrayStarters[index].startTime == nil {
+                                            riderDetails = arrayStarters[index].racenumber + " has no start time"
+                                        } else {
+                                            arrayStarters[index].raceTime = t.time!.timeIntervalSince(arrayStarters[index].startTime!)
+                                        }
                                     } else if raceTypes[myConfig.raceType] == "TT" {
                                         arrayStarters[index].overTheLine = String(t.overTheLine)
                                         riderDetails = arrayStarters[index].overTheLine
@@ -4478,6 +4583,7 @@ struct ContentView: View {
         @State var points = ""
         @State var outputPlace = ""
         @State var displayTime = ""
+        @State var resultColor = Color.black
         
         @State var riderList: [String] = []
         
@@ -4527,7 +4633,7 @@ struct ContentView: View {
                                 Text(String($0 + 1))
                             }
                         }
-                        .frame(width:30)
+                        .frame(width:50)
                         .clipped()
                         .id(UUID())
                         
@@ -4544,7 +4650,7 @@ struct ContentView: View {
                             }
                         }
                         .id(UUID())
-                        .frame(width: 30)
+                        .frame(width: 60)
                         .clipped()
 
                         
@@ -4609,7 +4715,7 @@ struct ContentView: View {
                                 }
                             }
                             .id(UUID())
-                            .frame(width: 50)
+                            .frame(width: riderNumberSelWidth)
                             .clipped()
 
                             VStack {
@@ -4681,6 +4787,7 @@ struct ContentView: View {
                         .listStyle(PlainListStyle())
                     } else {
                         Text(result)
+                            .foregroundColor(resultColor)
                         Button(action: {
                             // Export the stage results as file
                             var csvString = "\("Number")\t\("Surname")\t\("Firstname")\t\("Grade")\t\("Race Grade")\t\("Position")\t\("Time")"
@@ -4748,8 +4855,10 @@ struct ContentView: View {
                                 let fileURL = path.appendingPathComponent("Stages " + newName + ".csv")
                                 try csvString.write(to: fileURL, atomically: true, encoding: .utf8)
                                 result = "Result written: " + "Stages " + newName + ".csv"
+                                resultColor = Color.black
                             } catch {
                                 result = "Error creating file: " + "Stages " + newName + ".csv   Error: \(error)"
+                                resultColor = Color.red
                             }
                         }) {
                             Text("Export")
@@ -4896,14 +5005,15 @@ struct ContentView: View {
                             points = "0"
                             surname = starter.surname
                             givenName = starter.givenName
-                            if raceTypes[myConfig.raceType] == "Wheel" {
-                                displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
-                            } else if raceTypes[myConfig.raceType] == "Hcp" {
-                                displayTime = hcpDisplayTime(rider: starter)
-                            } else if myConfig.stage || raceTypes[myConfig.raceType] == "Graded" {
-                                displayTime = doubleAsTime(starter.raceTime)
-                            } else {
-                                displayTime = starter.displayTime
+                            switch raceTypes[myConfig.raceType] {
+                                case "Wheel":
+                                    displayTime = "(" + handicapForGrade(grade: starter.racegrade) + ")"
+                                case "Hcp":
+                                    displayTime = hcpDisplayTime(rider: starter)
+                                case "Graded", "TT":
+                                    displayTime = doubleAsTime(starter.raceTime)
+                                default:
+                                    displayTime = starter.displayTime
                             }
                         } else if myConfig.championship {
                             points = "0"
@@ -5515,6 +5625,8 @@ struct ContentView: View {
                 Text("SORS Version: " + version)
                 .frame(width: 300, alignment: .center)
                 .padding(.top, 50)
+                Text("RMS: " + myConfig.RMSurl)
+                .frame(width: 300, alignment: .center)
             }
         }
     }
@@ -5547,7 +5659,7 @@ struct ContentView: View {
                     .disabled(self.showMenu ? true : false)
                     .gesture(drag)
                 case "Settings":
-                    SettingsView()
+                    SettingsView(stopWatchManager: stopWatchManager)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(x: self.showMenu ? geometry.size.width/2 : 0)
                     .disabled(self.showMenu ? true : false)

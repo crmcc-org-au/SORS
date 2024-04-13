@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SORS.ipa</key>
+	<array>
+		<dict>
+			<key>architectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>bitcode</key>
+			<true/>
+			<key>certificate</key>
+			<dict>
+				<key>SHA1</key>
+				<string>A669140DC76B8F05FE0D6F1D2B2894C92A38E196</string>
+				<key>dateExpires</key>
+				<string>11/2/22</string>
+				<key>type</key>
+				<string>Apple Distribution</string>
+			</dict>
+			<key>entitlements</key>
+			<dict>
+				<key>application-identifier</key>
+				<string>W4U8P239UX.cc.actvets.SORS</string>
+				<key>beta-reports-active</key>
+				<true/>
+				<key>com.apple.developer.team-identifier</key>
+				<string>W4U8P239UX</string>
+				<key>get-task-allow</key>
+				<false/>
+				<key>keychain-access-groups</key>
+				<array>
+					<string>W4U8P239UX.cc.actvets.SORS</string>
+				</array>
+			</dict>
+			<key>name</key>
+			<string>SORS.app</string>
+			<key>profile</key>
+			<dict>
+				<key>UUID</key>
+				<string>2b11d0c6-fca7-4479-8850-f4be2a4c4fb2</string>
+				<key>name</key>
+				<string>iOS Team Store Provisioning Profile: cc.actvets.SORS</string>
+			</dict>
+			<key>symbols</key>
+			<true/>
+			<key>team</key>
+			<dict>
+				<key>id</key>
+				<string>W4U8P239UX</string>
+				<key>name</key>
+				<string>Ian McVay</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

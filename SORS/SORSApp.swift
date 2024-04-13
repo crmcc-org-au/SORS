@@ -13,10 +13,6 @@ struct SORSApp: App {
         // Do things to start up the app
         UIApplication.shared.isIdleTimerDisabled = true  // stop the screen locking
         running = UserDefaults.standard.bool(forKey: "running")
-
-        loadRiders()
-        loadNames()
-        loadRaces()
         
         // load the stored config
         if let items = UserDefaults.standard.data(forKey: "myConfig") {
@@ -25,6 +21,11 @@ struct SORSApp: App {
                 myConfig = decoded
             }
         }
+        
+        // need to do loads of RMS data AFTER loading the config data
+        loadRiders()
+        loadNames()
+        loadRaces()
         
         peripheralName = String(UserDefaults.standard.string(forKey: "peripheralName") ?? "")
 

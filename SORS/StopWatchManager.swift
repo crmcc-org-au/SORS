@@ -30,7 +30,7 @@ class StopWatchManager: ObservableObject {
     var sortedRiders = [Rider]()
     var countDown = 5
     var starting = false
-    let updateInterval = 0.1
+    let updateInterval = 0.1          // update the timer every .1 sec
     
     // create a sound ID for count down and start.
     // note - availability of sounds seems unreliable
@@ -79,7 +79,7 @@ class StopWatchManager: ObservableObject {
         if !self.started {
         timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) {
             timer in self.counter += self.updateInterval
-    //            let a = self.counter    // debugging
+            //    let a = self.counter    // debugging
             self.hours = self.counter/3600
             self.hours.round(.towardZero)
             self.minutes = (self.counter-self.hours*3600)/60
@@ -88,16 +88,12 @@ class StopWatchManager: ObservableObject {
             self.started = true
             
             if self.counter == 0 {
+                // TODO not sure if this is ever executed as counter is set above
                 // 1st rider is started
                 setStartTime(id: self.sortedRiders[0].id)
                 self.sortedRiders.remove(at: 0)
                 
-                if raceTypes[myConfig.raceType] == "Hcp" {
-                    for i in 0...(arrayStarters.count - 1) {
-                        if arrayStarters[i].racegrade == self.sortedHandicaps[0].racegrade {
-                            arrayStarters[i].startTime = Date()
-                        }
-                    }
+                if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Wheel" {
                     self.sortedHandicaps.remove(at: 0)
                 }
             }
@@ -143,17 +139,10 @@ class StopWatchManager: ObservableObject {
                     self.stopTimer()
                 }
                     
-            } else if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Wheel"{
+            } else if raceTypes[myConfig.raceType] == "Hcp" || raceTypes[myConfig.raceType] == "Wheel" {
                 if self.sortedHandicaps.count > 0 {
                     // if time has passed for grade start, remove it from the list
                     if Int(self.counter) >= self.sortedHandicaps[0].time {
-                        // set the start times for the started riders
-                        for i in 0...(arrayStarters.count - 1) {
-                            if arrayStarters[i].racegrade == self.sortedHandicaps[0].racegrade {
-                                arrayStarters[i].startTime = Date()
-                            }
-                        }
-                       
                         AudioServicesPlaySystemSound (self.goSoundID)
                         self.sortedHandicaps.remove(at: 0)
                         self.countDown = 5
@@ -191,12 +180,15 @@ class StopWatchManager: ObservableObject {
     
     func resume() {
         // set the counter (seconds) to be the time since the race start
-//        // get the stored startdate
+        // get the stored startdate
         if UserDefaults.standard.object(forKey: "startDateTime") != nil {
             startDateTime = UserDefaults.standard.object(forKey: "startDateTime") as! Date?
             counter = Date().timeIntervalSince(startDateTime!)
         } else {
             counter = 0
+        }
+        if !started {
+            startTimer()
         }
     }
     
